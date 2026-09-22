@@ -1,11 +1,13 @@
 /**
  * US Chokepoint Dashboard - Frontend Application
  * High Information Density, Native ESModule, Zero Overhead
- * Enforces Cache Busting on every request & update.
+ * Live US Stock Real-time Quotes via High-Availability Financial API
  */
 
 let currentData = null;
+let realtimeQuotes = {};
 let currentView = 'cards'; // 'cards' | 'table'
+let lastQuoteTime = null;
 
 // Domain classification map for quick filtering
 const DOMAIN_GROUPS = {
@@ -15,53 +17,201 @@ const DOMAIN_GROUPS = {
   POWER: ['GEV', 'ETN', 'VRT', 'APH']
 };
 
+// Tencent Financial API Symbol Mapping
+const SYMBOL_TO_TENCENT = {
+  NVDA: 'usNVDA',
+  ASML: 'usASML',
+  AVGO: 'usAVGO',
+  LRCX: 'usLRCX',
+  AMAT: 'usAMAT',
+  MU:   'usMU',
+  GEV:  'usGEV',
+  ETN:  'usETN',
+  VRT:  'usVRT',
+  APH:  'usAPH'
+};
+
 /**
- * Fetch latest data with aggressive cache busting.
+ * Fetch real-time quotes for all 10 symbols from Tencent Financial API.
+ * Supports direct fetch (CORS allowed) with fallback to JSONP script injection.
  */
-async function loadDashboardData() {
+async function fetchRealtimeQuotes() {
+  const queryList = Object.values(SYMBOL_TO_TENCENT).join(',');
+  const url = `https://qt.gtimg.cn/q=${queryList}?_t=${Date.now()}`;
+
+  let rawText = '';
+  try {
+    const res = await fetch(url, {
+      cache: 'no-store',
+      headers: {
+        'Pragma': 'no-cache',
+        'Cache-Control': 'no-cache, no-store'
+      }
+    });
+    if (res.ok) {
+      rawText = await res.text();
+    }
+  } catch (err) {
+    console.warn('Direct fetch failed, trying JSONP script fallback:', err);
+  }
+
+  // Fallback to JSONP script injection if fetch failed or returned empty
+  if (!rawText) {
+    rawText = await new Promise((resolve) => {
+      const scriptId = 'quote-jsonp-script';
+      const prev = document.getElementById(scriptId);
+      if (prev) prev.remove();
+
+      const script = document.createElement('script');
+      script.id = scriptId;
+      script.src = url;
+      script.onload = () => {
+        let assembled = '';
+        for (const [sym, tencentCode] of Object.entries(SYMBOL_TO_TENCENT)) {
+          if (window[`v_${tencentCode}`]) {
+            assembled += `v_${tencentCode}="${window[`v_${tencentCode}`]}";`;
+          }
+        }
+        script.remove();
+        resolve(assembled);
+      };
+      script.onerror = () => {
+        script.remove();
+        resolve('');
+      };
+      document.head.appendChild(script);
+    });
+  }
+
+  if (rawText) {
+    parseTencentRawQuotes(rawText);
+  }
+
+  return realtimeQuotes;
+}
+
+/**
+ * Parse Tencent GTImg formatted string:
+ * v_usNVDA="200~Ӣΰ~NVDA.OQ~228.27~227.38~226.85~...~2026-09-22 11:43:40~0.89~0.39~229.60~..."
+ */
+function parseTencentRawQuotes(text) {
+  const lines = text.split(';').map(s => s.trim()).filter(Boolean);
+  const updatedQuotes = {};
+
+  for (const line of lines) {
+    const match = line.match(/^v_(us[A-Za-z0-9]+)="(.+)"$/);
+    if (!match) continue;
+
+    const tencentKey = match[1];
+    const payload = match[2];
+    const fields = payload.split('~');
+
+    // Find symbol
+    const targetSymbol = Object.keys(SYMBOL_TO_TENCENT).find(
+      sym => SYMBOL_TO_TENCENT[sym] === tencentKey
+    );
+    if (!targetSymbol) continue;
+
+    const currentPrice = parseFloat(fields[3]);
+    const prevClose = parseFloat(fields[4]);
+    const openPrice = parseFloat(fields[5]);
+    const updateTime = fields[30] || '';
+    const changeAmt = parseFloat(fields[31]);
+    const changePct = parseFloat(fields[32]);
+
+    updatedQuotes[targetSymbol] = {
+      symbol: targetSymbol,
+      price: !isNaN(currentPrice) ? currentPrice.toFixed(2) : '--',
+      prevClose: !isNaN(prevClose) ? prevClose.toFixed(2) : '--',
+      open: !isNaN(openPrice) ? openPrice.toFixed(2) : '--',
+      changeAmt: !isNaN(changeAmt) ? (changeAmt > 0 ? `+${changeAmt.toFixed(2)}` : changeAmt.toFixed(2)) : '0.00',
+      changePct: !isNaN(changePct) ? (changePct > 0 ? `+${changePct.toFixed(2)}` : changePct.toFixed(2)) : '0.00',
+      isUp: changePct > 0,
+      isDown: changePct < 0,
+      time: updateTime
+    };
+  }
+
+  realtimeQuotes = { ...realtimeQuotes, ...updatedQuotes };
+  lastQuoteTime = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+}
+
+/**
+ * Fetch latest data with aggressive cache busting and live stock quotes.
+ */
+async function loadDashboardData(isManual = false) {
   const refreshIcon = document.getElementById('refresh-icon');
   const refreshText = document.getElementById('refresh-text');
   
   if (refreshIcon) refreshIcon.classList.add('animate-spin-custom');
-  if (refreshText) refreshText.textContent = '載入中...';
+  if (refreshText) refreshText.textContent = '更新中...';
 
   try {
     const timestamp = Date.now();
-    const url = `./data/chokepoint_latest.json?_t=${timestamp}`;
+    const staticUrl = `./data/chokepoint_latest.json?_t=${timestamp}`;
     
-    const response = await fetch(url, {
-      cache: 'no-store',
-      headers: {
-        'Pragma': 'no-cache',
-        'Cache-Control': 'no-cache, no-store, must-revalidate'
-      }
-    });
+    // Concurrent fetch: static deep ratings + live real-time quotes
+    const [staticRes] = await Promise.all([
+      fetch(staticUrl, {
+        cache: 'no-store',
+        headers: {
+          'Pragma': 'no-cache',
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
+        }
+      }),
+      fetchRealtimeQuotes()
+    ]);
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    if (!staticRes.ok) {
+      throw new Error(`HTTP error! status: ${staticRes.status}`);
     }
 
-    currentData = await response.json();
+    currentData = await staticRes.json();
     renderHeaderMetadata(currentData);
     renderCurrentView();
-    showToast('看板數據已即時同步至最新版本');
+
+    if (isManual) {
+      showToast('10 檔卡脖子標的即時行情與評級已同步');
+    }
   } catch (error) {
     console.error('Failed to load dashboard data:', error);
-    showToast('連線失敗，請稍後重試', true);
+    showToast('連線異常，請稍後重試', true);
   } finally {
     if (refreshIcon) refreshIcon.classList.remove('animate-spin-custom');
     if (refreshText) refreshText.textContent = '即時更新';
   }
 }
 
+/**
+ * Silent periodic refresh for real-time stock prices (every 30s)
+ */
+async function silentRefreshQuotes() {
+  try {
+    await fetchRealtimeQuotes();
+    renderHeaderMetadata(currentData);
+    renderCurrentView();
+  } catch (e) {
+    console.debug('Silent quote refresh skipped:', e);
+  }
+}
+
 function renderHeaderMetadata(data) {
   const metaTime = document.getElementById('meta-updated-time');
+  const quoteTimeTag = document.getElementById('quote-updated-time');
   const versionTag = document.getElementById('version-tag');
   
-  if (metaTime && data.updated_at_shanghai) {
+  if (metaTime && data && data.updated_at_shanghai) {
     metaTime.textContent = data.updated_at_shanghai;
   }
-  if (versionTag && data.version_hash) {
+  if (quoteTimeTag) {
+    if (lastQuoteTime) {
+      quoteTimeTag.textContent = `${lastQuoteTime} (即時連線)`;
+      quoteTimeTag.className = 'font-mono text-emerald-400 font-semibold';
+    } else {
+      quoteTimeTag.textContent = '獲取中...';
+    }
+  }
+  if (versionTag && data && data.version_hash) {
     versionTag.textContent = `Build: ${data.version_hash}`;
   }
 }
@@ -100,6 +250,38 @@ function renderCardsView() {
     const card = document.createElement('div');
     card.className = 'bg-[#111827] border border-gray-800/90 hover:border-emerald-500/50 rounded-xl p-5 shadow-lg transition duration-200 flex flex-col justify-between';
 
+    // Retrieve live quote for this symbol
+    const q = realtimeQuotes[item.symbol];
+    let quoteHtml = '';
+    if (q && q.price !== '--') {
+      const badgeColor = q.isUp 
+        ? 'bg-emerald-950/80 text-emerald-400 border-emerald-800/60' 
+        : (q.isDown ? 'bg-rose-950/80 text-rose-400 border-rose-800/60' : 'bg-gray-800 text-gray-300 border-gray-700');
+      const timeClean = q.time ? q.time.split(' ')[1] || q.time : '';
+
+      quoteHtml = `
+        <div class="mt-2.5 px-3 py-2 rounded-lg bg-gray-900/90 border border-gray-800 flex items-center justify-between font-mono">
+          <div class="flex items-baseline gap-2">
+            <span class="text-[11px] text-gray-400 font-sans">即時股價</span>
+            <span class="text-xl font-bold text-white tracking-tight">$${q.price}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold border ${badgeColor}">
+              ${q.changePct}% (${q.changeAmt})
+            </span>
+            <span class="text-[10px] text-gray-500 hidden sm:inline">${timeClean}</span>
+          </div>
+        </div>
+      `;
+    } else {
+      quoteHtml = `
+        <div class="mt-2.5 px-3 py-2 rounded-lg bg-gray-900/60 border border-gray-800/60 flex items-center justify-between text-xs text-gray-400 font-mono">
+          <span>即時報價</span>
+          <span class="text-gray-500 text-[11px]">獲取行情中...</span>
+        </div>
+      `;
+    }
+
     card.innerHTML = `
       <div>
         <!-- Card Top Bar: Symbol, Name, Score -->
@@ -117,6 +299,9 @@ function renderCardsView() {
             <span class="text-[10px] text-gray-500 block -mt-1 font-mono">/ 100分</span>
           </div>
         </div>
+
+        <!-- Real-time Quote Bar -->
+        ${quoteHtml}
 
         <!-- Score Breakdown Tag -->
         <div class="mt-2.5 flex items-center justify-between text-[11px] bg-gray-900/80 px-2.5 py-1.5 rounded-lg border border-gray-800/60 font-mono text-gray-400">
@@ -176,6 +361,22 @@ function renderTableView() {
     const tr = document.createElement('tr');
     tr.className = 'hover:bg-gray-800/40 transition duration-150';
 
+    const q = realtimeQuotes[item.symbol];
+    let priceCellHtml = '';
+    if (q && q.price !== '--') {
+      const textColor = q.isUp ? 'text-emerald-400' : (q.isDown ? 'text-rose-400' : 'text-gray-300');
+      const timeClean = q.time ? q.time.split(' ')[1] || q.time : '';
+      priceCellHtml = `
+        <div class="font-bold text-white text-sm">$${q.price}</div>
+        <div class="text-[11px] font-medium ${textColor}">
+          ${q.changePct}% (${q.changeAmt})
+        </div>
+        <div class="text-[10px] text-gray-500 font-mono mt-0.5">${timeClean}</div>
+      `;
+    } else {
+      priceCellHtml = `<span class="text-gray-500 text-xs">載入中...</span>`;
+    }
+
     tr.innerHTML = `
       <td class="py-3 px-3.5 font-medium whitespace-nowrap">
         <div class="flex items-center gap-1.5">
@@ -187,8 +388,8 @@ function renderTableView() {
       <td class="py-3 px-3 text-gray-200 text-xs max-w-[200px] leading-snug">
         ${item.chokepoint_domain}
       </td>
-      <td class="py-3 px-3 font-mono text-xs text-gray-300 whitespace-nowrap">
-        ${item.market}
+      <td class="py-3 px-3 font-mono whitespace-nowrap">
+        ${priceCellHtml}
       </td>
       <td class="py-3 px-3 text-[11px] text-gray-300 max-w-[160px] leading-snug">
         ${item.institutional_flow}
@@ -219,9 +420,9 @@ function showToast(message, isError = false) {
 
   toastMessage.textContent = message;
   if (isError) {
-    toast.className = toast.className.replace('bg-emerald-900 border-emerald-700', 'bg-red-900 border-red-700');
+    toast.className = toast.className.replace('bg-emerald-900 border-emerald-700', 'bg-rose-900 border-rose-700');
   } else {
-    toast.className = toast.className.replace('bg-red-900 border-red-700', 'bg-emerald-900 border-emerald-700');
+    toast.className = toast.className.replace('bg-rose-900 border-rose-700', 'bg-emerald-900 border-emerald-700');
   }
 
   toast.classList.remove('translate-y-20', 'opacity-0');
@@ -232,13 +433,18 @@ function showToast(message, isError = false) {
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
-  // Load initial data
-  loadDashboardData();
+  // Load initial data and quotes
+  loadDashboardData(false);
 
-  // Refresh button
+  // Auto-refresh quotes every 30 seconds
+  setInterval(silentRefreshQuotes, 30000);
+
+  // Refresh button (manual full update)
   const refreshBtn = document.getElementById('refresh-btn');
   if (refreshBtn) {
-    refreshBtn.addEventListener('click', loadDashboardData);
+    refreshBtn.addEventListener('click', () => {
+      loadDashboardData(true);
+    });
   }
 
   // Domain filter
