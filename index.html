@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>美股卡脖子日更看板 | US Chokepoint Dashboard</title>
+  <!-- Cache Control Meta -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              500: '#10b981',
+              600: '#059669',
+              900: '#064e3b',
+            },
+            darkbg: '#0b0f19',
+            cardbg: '#111827',
+            cardborder: '#1f2937',
+            cardhover: '#1e293b'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @keyframes spin-fast {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .animate-spin-custom {
+      animation: spin-fast 0.8s linear infinite;
+    }
+    .badge-score {
+      font-feature-settings: "tnum";
+      font-variant-numeric: tabular-nums;
+    }
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0b0f19;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #374151;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #4b5563;
+    }
+  </style>
+</head>
+<body class="bg-[#0b0f19] text-gray-100 min-h-screen flex flex-col font-sans antialiased selection:bg-emerald-500 selection:text-white">
+
+  <!-- Top Announcement Bar / Redlines -->
+  <div class="bg-gray-900 border-b border-gray-800 text-xs px-4 py-1.5 text-gray-400 flex flex-wrap items-center justify-between gap-2">
+    <div class="flex items-center space-x-2">
+      <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800/60">
+        客觀質詢準則
+      </span>
+      <span>基準分純代表卡脖子排他性（評分不含估值）｜ 缺項嚴格標「未核到」｜ 買入/持倉位鎖定「未有」</span>
+    </div>
+    <div class="flex items-center space-x-3 text-[11px]">
+      <span id="version-tag" class="text-gray-400 font-mono">Build: loading...</span>
+      <span class="text-gray-600">|</span>
+      <span class="text-amber-400/90 font-medium">獨立網域：us-chokepoint</span>
+    </div>
+  </div>
+
+  <!-- Header Navigation -->
+  <header class="sticky top-0 z-30 bg-[#0e1422]/95 backdrop-blur border-b border-gray-800 px-4 sm:px-6 lg:px-8 py-3.5 shadow-lg">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+      <div class="flex items-center space-x-3">
+        <div class="w-9 h-9 rounded-lg bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center font-black text-black shadow-md shadow-emerald-900/40">
+          CP
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="text-lg sm:text-xl font-bold tracking-tight text-white flex items-center gap-2">
+              美股「卡脖子」日更看板
+            </h1>
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-900/60 text-emerald-300 border border-emerald-700/50 font-medium">
+              10 檔核心標的
+            </span>
+          </div>
+          <p class="text-xs text-gray-400 mt-0.5">
+            US Tech Moat & Supply Chain Chokepoint Intelligence
+          </p>
+        </div>
+      </div>
+
+      <!-- Controls & Refresh Action -->
+      <div class="flex items-center flex-wrap gap-2.5">
+        <!-- View Toggle Buttons -->
+        <div class="bg-gray-800/80 p-1 rounded-lg border border-gray-700/60 flex text-xs">
+          <button id="view-card-btn" class="px-2.5 py-1 rounded font-medium bg-emerald-600 text-white shadow-sm transition">
+            卡片詳情
+          </button>
+          <button id="view-table-btn" class="px-2.5 py-1 rounded font-medium text-gray-300 hover:text-white transition">
+            矩陣對比
+          </button>
+        </div>
+
+        <!-- Filter Domain -->
+        <select id="domain-filter" class="bg-gray-800 border border-gray-700 text-gray-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          <option value="ALL">全部領域 (10)</option>
+          <option value="CHIP">AI 計算與 ASIC (NVDA, AVGO)</option>
+          <option value="EQUIP">微影/蝕刻/沉積 (ASML, LRCX, AMAT)</option>
+          <option value="MEMORY">先進 HBM / DRAM (MU)</option>
+          <option value="POWER">電力變壓/散熱/燃機 (GEV, ETN, VRT, APH)</option>
+        </select>
+
+        <!-- Instant Refresh Button (Cache Busting) -->
+        <button id="refresh-btn" class="inline-flex items-center space-x-1.5 px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-95 text-white text-xs font-semibold rounded-lg shadow-md shadow-emerald-900/30 transition duration-150">
+          <svg id="refresh-icon" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+          </svg>
+          <span id="refresh-text">即時更新</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Status / Metadata Banner -->
+  <section class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 mt-4">
+    <div class="bg-gradient-to-r from-gray-900 via-gray-850 to-gray-900 border border-gray-800 rounded-xl p-3.5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+      <div class="flex items-center space-x-3">
+        <div class="relative flex h-3 w-3">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+        </div>
+        <div class="space-y-0.5">
+          <div class="text-gray-300 font-medium flex items-center gap-2">
+            <span>更新戳記 (上海時間)：</span>
+            <span id="meta-updated-time" class="font-mono text-emerald-400 font-semibold">載入中...</span>
+          </div>
+          <p class="text-[11px] text-gray-500">美國收盤後每日自動更新（上海 04:30 後）｜ 每次刷新自動替換跨裝置快取戳記</p>
+        </div>
+      </div>
+      
+      <!-- Quick Metric Counters -->
+      <div class="flex items-center space-x-4 border-t sm:border-t-0 pt-2 sm:pt-0 border-gray-800">
+        <div class="text-right">
+          <span class="text-gray-500 text-[11px] block">護城河最高分</span>
+          <span class="text-emerald-400 font-bold text-sm">87 (ASML)</span>
+        </div>
+        <div class="h-6 w-px bg-gray-800"></div>
+        <div class="text-right">
+          <span class="text-gray-500 text-[11px] block">觀察席位</span>
+          <span class="text-white font-bold text-sm">10 / 10 檔</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Content Container -->
+  <main class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-5 flex-1">
+    
+    <!-- Toast Notification for Refresh -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 max-w-sm bg-emerald-900 text-emerald-100 border border-emerald-700 px-4 py-2.5 rounded-lg shadow-2xl flex items-center space-x-2 text-xs">
+      <svg class="w-4 h-4 text-emerald-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+      </svg>
+      <span id="toast-message">看板已成功即時更新至最新版本</span>
+    </div>
+
+    <!-- Cards View Container -->
+    <div id="cards-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <!-- Injected via JavaScript -->
+    </div>
+
+    <!-- Table View Container (Hidden by default) -->
+    <div id="table-container" class="hidden overflow-x-auto rounded-xl border border-gray-800 shadow-xl bg-[#111827]">
+      <table class="w-full text-left text-xs text-gray-300 divide-y divide-gray-800">
+        <thead class="bg-gray-900/90 text-gray-400 uppercase tracking-wider text-[11px]">
+          <tr>
+            <th scope="col" class="py-3 px-3.5 font-semibold">標的 / 評分</th>
+            <th scope="col" class="py-3 px-3 font-semibold">卡脖子領域</th>
+            <th scope="col" class="py-3 px-3 font-semibold">價格行情</th>
+            <th scope="col" class="py-3 px-3 font-semibold">法人 / 基金進出</th>
+            <th scope="col" class="py-3 px-3 font-semibold">資金進出流量</th>
+            <th scope="col" class="py-3 px-3.5 font-semibold">最近財報</th>
+            <th scope="col" class="py-3 px-3.5 font-semibold">公司運營瓶頸</th>
+            <th scope="col" class="py-3 px-3 font-semibold">買入 / 持倉位</th>
+          </tr>
+        </thead>
+        <tbody id="table-body" class="divide-y divide-gray-800/60 font-sans">
+          <!-- Injected via JavaScript -->
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Excluded Stock Notice -->
+    <div class="mt-8 p-3 rounded-lg bg-gray-900/60 border border-gray-800/80 text-[11px] text-gray-400 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+      <div>
+        <span class="text-gray-300 font-semibold">已嚴格排除標的：</span>
+        <span>TSM (代工非架構), SKHY (非美股普通股), PWR (工程承包), CEG (電廠非設備), SNPS (軟體), COHR (光模組)。台股五檔不在本看板。</span>
+      </div>
+      <div class="text-gray-500 font-mono text-[10px]">
+        Anti-Fabrication & Strict Whitelist Protocol Active
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="mt-auto border-t border-gray-800/80 bg-gray-950/80 py-4 px-4 sm:px-6 text-center text-xs text-gray-500">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+      <div class="flex items-center space-x-2">
+        <span class="text-emerald-500 font-bold">美股卡脖子看板</span>
+        <span>·</span>
+        <span>US Chokepoint Dashboard</span>
+      </div>
+      <div>
+        <span>客觀質詢前置 ｜ 不下單 ｜ 數據無來源標「未核到」 ｜ 買入位「未有」 ｜ 持倉位「未有」</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- App Script -->
+  <script src="./app.js" type="module"></script>
+</body>
+</html>
+
+
