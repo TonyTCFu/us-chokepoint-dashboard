@@ -1,7 +1,7 @@
 /**
  * US Chokepoint Dashboard - Frontend Application
  * High Information Density, Native ESModule, Zero Overhead
- * Live US Stock Real-time Quotes via High-Availability Financial API
+ * Live US Stock Real-time Quotes with Resilient Non-blocking Fallbacks
  */
 
 let currentData = null;
@@ -31,31 +31,51 @@ const SYMBOL_TO_TENCENT = {
   APH:  'usAPH'
 };
 
+function formatShanghaiTime() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  const y = d.getFullYear();
+  const m = pad(d.getMonth() + 1);
+  const day = pad(d.getDate());
+  const h = pad(d.getHours());
+  const min = pad(d.getMinutes());
+  const s = pad(d.getSeconds());
+  return `${y}-${m}-${day} ${h}:${min}:${s}`;
+}
+
 /**
- * Fetch real-time quotes for all 10 symbols from Tencent Financial API.
- * Supports direct fetch (CORS allowed) with fallback to JSONP script injection.
+ * Fetch real-time quotes with strict 3-second timeout.
+ * Guaranteed never to hang or block UI rendering.
  */
 async function fetchRealtimeQuotes() {
   const queryList = Object.values(SYMBOL_TO_TENCENT).join(',');
   const url = `https://qt.gtimg.cn/q=${queryList}?_t=${Date.now()}`;
 
   let rawText = '';
+
+  // 1. Direct fetch with 3s AbortController timeout
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+
     const res = await fetch(url, {
+      signal: controller.signal,
       cache: 'no-store',
       headers: {
         'Pragma': 'no-cache',
         'Cache-Control': 'no-cache, no-store'
       }
     });
+    clearTimeout(timeoutId);
+
     if (res.ok) {
       rawText = await res.text();
     }
   } catch (err) {
-    console.warn('Direct fetch failed, trying JSONP script fallback:', err);
+    console.warn('Direct quote fetch aborted or failed:', err);
   }
 
-  // Fallback to JSONP script injection if fetch failed or returned empty
+  // 2. Fallback to JSONP script injection with 3s safety timeout
   if (!rawText) {
     rawText = await new Promise((resolve) => {
       const scriptId = 'quote-jsonp-script';
@@ -65,7 +85,14 @@ async function fetchRealtimeQuotes() {
       const script = document.createElement('script');
       script.id = scriptId;
       script.src = url;
+
+      const safetyTimer = setTimeout(() => {
+        if (script.parentNode) script.remove();
+        resolve('');
+      }, 3000);
+
       script.onload = () => {
+        clearTimeout(safetyTimer);
         let assembled = '';
         for (const [sym, tencentCode] of Object.entries(SYMBOL_TO_TENCENT)) {
           if (window[`v_${tencentCode}`]) {
@@ -75,10 +102,13 @@ async function fetchRealtimeQuotes() {
         script.remove();
         resolve(assembled);
       };
+
       script.onerror = () => {
-        script.remove();
+        clearTimeout(safetyTimer);
+        if (script.parentNode) script.remove();
         resolve('');
       };
+
       document.head.appendChild(script);
     });
   }
@@ -136,20 +166,10 @@ function parseTencentRawQuotes(text) {
   lastQuoteTime = formatShanghaiTime();
 }
 
-function formatShanghaiTime() {
-  const d = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
-  const y = d.getFullYear();
-  const m = pad(d.getMonth() + 1);
-  const day = pad(d.getDate());
-  const h = pad(d.getHours());
-  const min = pad(d.getMinutes());
-  const s = pad(d.getSeconds());
-  return `${y}-${m}-${day} ${h}:${min}:${s}`;
-}
-
 /**
- * Fetch latest data with aggressive cache busting and live stock quotes.
+ * Non-blocking dashboard loader:
+ * 1. Immediately loads static JSON & renders the UI (ZERO loading freeze).
+ * 2. Asynchronously fetches live quotes and updates cards seamlessly.
  */
 async function loadDashboardData(isManual = false) {
   const refreshIcon = document.getElementById('refresh-icon');
@@ -160,36 +180,40 @@ async function loadDashboardData(isManual = false) {
 
   try {
     const timestamp = Date.now();
-    const staticUrl = `./data/chokepoint_latest.json?_t=${timestamp}&v=202609231335`;
+    const staticUrl = `./data/chokepoint_latest.json?_t=${timestamp}&v=202609231535`;
     
-    // Concurrent fetch: static deep ratings + live real-time quotes
-    const [staticRes] = await Promise.all([
-      fetch(staticUrl, {
-        cache: 'no-store',
-        headers: {
-          'Pragma': 'no-cache',
-          'Cache-Control': 'no-cache, no-store, must-revalidate'
-        }
-      }),
-      fetchRealtimeQuotes()
-    ]);
+    // Step 1: Fetch static rating data first
+    const staticRes = await fetch(staticUrl, {
+      cache: 'no-store',
+      headers: {
+        'Pragma': 'no-cache',
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
+      }
+    });
 
     if (!staticRes.ok) {
-      throw new Error(`HTTP error! status: ${staticRes.status}`);
+      throw new Error(`HTTP error loading static data: ${staticRes.status}`);
     }
 
     currentData = await staticRes.json();
-    lastQuoteTime = formatShanghaiTime();
+    
+    // Render UI immediately with static data! No blank screen!
     renderHeaderMetadata(currentData);
     renderCurrentView();
+
+    // Step 2: Asynchronously update live stock quotes without blocking UI
+    fetchRealtimeQuotes().then(() => {
+      renderHeaderMetadata(currentData);
+      renderCurrentView();
+    }).catch(err => {
+      console.warn('Realtime quotes background fetch finished with fallback:', err);
+    });
 
     if (isManual) {
       showToast('✅ 已強制穿透快取！行情與 9月23日 評級已同步');
     }
   } catch (error) {
     console.error('Failed to load dashboard data:', error);
-    lastQuoteTime = formatShanghaiTime();
-    renderHeaderMetadata(currentData);
     showToast('連線異常，請稍後重試', true);
   } finally {
     if (refreshIcon) refreshIcon.classList.remove('animate-spin-custom');
@@ -203,7 +227,6 @@ async function loadDashboardData(isManual = false) {
 async function silentRefreshQuotes() {
   try {
     await fetchRealtimeQuotes();
-    lastQuoteTime = formatShanghaiTime();
     renderHeaderMetadata(currentData);
     renderCurrentView();
   } catch (e) {
@@ -278,7 +301,7 @@ function renderCardsView() {
       quoteHtml = `
         <div class="mt-2.5 px-3 py-2 rounded-lg bg-gray-900/90 border border-gray-800 flex items-center justify-between font-mono">
           <div class="flex items-baseline gap-2">
-            <span class="text-[11px] text-gray-400 font-sans">即時股價</span>
+            <span class="text-[11px] text-gray-400 font-sans">最新報價</span>
             <span class="text-xl font-bold text-white tracking-tight">$${q.price}</span>
           </div>
           <div class="flex items-center gap-2">
@@ -292,8 +315,8 @@ function renderCardsView() {
     } else {
       quoteHtml = `
         <div class="mt-2.5 px-3 py-2 rounded-lg bg-gray-900/60 border border-gray-800/60 flex items-center justify-between text-xs text-gray-400 font-mono">
-          <span>即時報價</span>
-          <span class="text-gray-500 text-[11px]">獲取行情中...</span>
+          <span>行情連線中</span>
+          <span class="text-emerald-400 text-[11px]">即時報價同步中...</span>
         </div>
       `;
     }
@@ -390,7 +413,7 @@ function renderTableView() {
         <div class="text-[10px] text-gray-500 font-mono mt-0.5">${timeClean}</div>
       `;
     } else {
-      priceCellHtml = `<span class="text-gray-500 text-xs">載入中...</span>`;
+      priceCellHtml = `<span class="text-emerald-400 text-xs">同步中...</span>`;
     }
 
     tr.innerHTML = `
@@ -447,15 +470,15 @@ function showToast(message, isError = false) {
   }, 2500);
 }
 
-// Event Listeners
-document.addEventListener('DOMContentLoaded', () => {
-  // Load initial data and quotes
+// Global App Initialization
+function initApp() {
+  // 1. Immediate data load
   loadDashboardData(false);
 
-  // Auto-refresh quotes every 30 seconds
+  // 2. Periodic quote refresh
   setInterval(silentRefreshQuotes, 30000);
 
-  // Refresh button (manual full update)
+  // 3. Refresh button click
   const refreshBtn = document.getElementById('refresh-btn');
   if (refreshBtn) {
     refreshBtn.addEventListener('click', () => {
@@ -463,13 +486,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Domain filter
+  // 4. Domain filter
   const domainFilter = document.getElementById('domain-filter');
   if (domainFilter) {
     domainFilter.addEventListener('change', renderCurrentView);
   }
 
-  // View switch buttons
+  // 5. View switch buttons
   const viewCardBtn = document.getElementById('view-card-btn');
   const viewTableBtn = document.getElementById('view-table-btn');
 
@@ -488,4 +511,11 @@ document.addEventListener('DOMContentLoaded', () => {
       renderCurrentView();
     });
   }
-});
+}
+
+// Support all browser ready states (loading, interactive, complete)
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}

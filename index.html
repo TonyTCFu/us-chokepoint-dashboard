@@ -240,12 +240,8 @@
     </div>
   </footer>
 
-  <!-- App Script with aggressive cache busting -->
-  <script type="module">
-    const v = "20260923_1335";
-    const ts = Date.now();
-    import(`./app.js?v=${v}&_t=${ts}`).catch(e => console.error("App module failed to load:", e));
-  </script>
+  <!-- App Script with version query -->
+  <script src="./app.js?v=202609231535" type="module"></script>
 </body>
 </html>
 
