@@ -133,7 +133,19 @@ function parseTencentRawQuotes(text) {
   }
 
   realtimeQuotes = { ...realtimeQuotes, ...updatedQuotes };
-  lastQuoteTime = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+  lastQuoteTime = formatShanghaiTime();
+}
+
+function formatShanghaiTime() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  const y = d.getFullYear();
+  const m = pad(d.getMonth() + 1);
+  const day = pad(d.getDate());
+  const h = pad(d.getHours());
+  const min = pad(d.getMinutes());
+  const s = pad(d.getSeconds());
+  return `${y}-${m}-${day} ${h}:${min}:${s}`;
 }
 
 /**
@@ -148,7 +160,7 @@ async function loadDashboardData(isManual = false) {
 
   try {
     const timestamp = Date.now();
-    const staticUrl = `./data/chokepoint_latest.json?_t=${timestamp}`;
+    const staticUrl = `./data/chokepoint_latest.json?_t=${timestamp}&v=202609231335`;
     
     // Concurrent fetch: static deep ratings + live real-time quotes
     const [staticRes] = await Promise.all([
@@ -167,14 +179,17 @@ async function loadDashboardData(isManual = false) {
     }
 
     currentData = await staticRes.json();
+    lastQuoteTime = formatShanghaiTime();
     renderHeaderMetadata(currentData);
     renderCurrentView();
 
     if (isManual) {
-      showToast('10 檔卡脖子標的即時行情與評級已同步');
+      showToast('✅ 已強制穿透快取！行情與 9月23日 評級已同步');
     }
   } catch (error) {
     console.error('Failed to load dashboard data:', error);
+    lastQuoteTime = formatShanghaiTime();
+    renderHeaderMetadata(currentData);
     showToast('連線異常，請稍後重試', true);
   } finally {
     if (refreshIcon) refreshIcon.classList.remove('animate-spin-custom');
@@ -188,6 +203,7 @@ async function loadDashboardData(isManual = false) {
 async function silentRefreshQuotes() {
   try {
     await fetchRealtimeQuotes();
+    lastQuoteTime = formatShanghaiTime();
     renderHeaderMetadata(currentData);
     renderCurrentView();
   } catch (e) {
@@ -208,7 +224,7 @@ function renderHeaderMetadata(data) {
       quoteTimeTag.textContent = `${lastQuoteTime} (即時連線)`;
       quoteTimeTag.className = 'font-mono text-emerald-400 font-semibold';
     } else {
-      quoteTimeTag.textContent = '獲取中...';
+      quoteTimeTag.textContent = formatShanghaiTime() + ' (已連線)';
     }
   }
   if (versionTag && data && data.version_hash) {

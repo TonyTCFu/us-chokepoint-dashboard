@@ -8,6 +8,17 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
+  <script>
+    // Automatic mobile cache breaker: forces browser to drop stale script cache
+    const BUILD_VERSION = "20260923_1335";
+    const storedVer = localStorage.getItem("us_cp_ver");
+    if (storedVer !== BUILD_VERSION) {
+      localStorage.setItem("us_cp_ver", BUILD_VERSION);
+      if (storedVer && 'caches' in window) {
+        caches.keys().then(names => names.forEach(name => caches.delete(name)));
+      }
+    }
+  </script>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -229,8 +240,12 @@
     </div>
   </footer>
 
-  <!-- App Script -->
-  <script src="./app.js" type="module"></script>
+  <!-- App Script with aggressive cache busting -->
+  <script type="module">
+    const v = "20260923_1335";
+    const ts = Date.now();
+    import(`./app.js?v=${v}&_t=${ts}`).catch(e => console.error("App module failed to load:", e));
+  </script>
 </body>
 </html>
 
