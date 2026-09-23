@@ -46,7 +46,16 @@
       "buy_position": "未有",
       "holding_position": "未有",
       "institutional_flow": "中長期法人部位鎖定，籌碼集中度高",
-      "capital_flow": "AI 基礎設施資本支出持續淨流入"
+      "capital_flow": "AI 基礎設施資本支出持續淨流入",
+      "baseline_quote": {
+        "price": "228.87",
+        "prevClose": "227.38",
+        "changeAmt": "+1.49",
+        "changePct": "+0.66",
+        "time": "2026-09-22 16:00:07",
+        "isUp": true,
+        "isDown": false
+      }
     },
     {
       "symbol": "ASML",
@@ -69,7 +78,16 @@
       "buy_position": "未有",
       "holding_position": "未有",
       "institutional_flow": "中長期法人部位鎖定，籌碼集中度高",
-      "capital_flow": "AI 基礎設施資本支出持續淨流入"
+      "capital_flow": "AI 基礎設施資本支出持續淨流入",
+      "baseline_quote": {
+        "price": "1747.90",
+        "prevClose": "1711.32",
+        "changeAmt": "+36.58",
+        "changePct": "+2.14",
+        "time": "2026-09-22 16:00:07",
+        "isUp": true,
+        "isDown": false
+      }
     },
     {
       "symbol": "AVGO",
@@ -92,7 +110,16 @@
       "buy_position": "未有",
       "holding_position": "未有",
       "institutional_flow": "中長期法人部位鎖定，籌碼集中度高",
-      "capital_flow": "AI 基礎設施資本支出持續淨流入"
+      "capital_flow": "AI 基礎設施資本支出持續淨流入",
+      "baseline_quote": {
+        "price": "364.54",
+        "prevClose": "362.66",
+        "changeAmt": "+1.88",
+        "changePct": "+0.52",
+        "time": "2026-09-22 16:00:07",
+        "isUp": true,
+        "isDown": false
+      }
     },
     {
       "symbol": "ETN",
@@ -115,7 +142,16 @@
       "buy_position": "未有",
       "holding_position": "未有",
       "institutional_flow": "中長期法人部位鎖定，籌碼集中度高",
-      "capital_flow": "AI 基礎設施資本支出持續淨流入"
+      "capital_flow": "AI 基礎設施資本支出持續淨流入",
+      "baseline_quote": {
+        "price": "442.49",
+        "prevClose": "435.43",
+        "changeAmt": "+7.06",
+        "changePct": "+1.62",
+        "time": "2026-09-22 16:05:27",
+        "isUp": true,
+        "isDown": false
+      }
     },
     {
       "symbol": "MU",
@@ -138,7 +174,16 @@
       "buy_position": "未有",
       "holding_position": "未有",
       "institutional_flow": "中長期法人部位鎖定，籌碼集中度高",
-      "capital_flow": "AI 基礎設施資本支出持續淨流入"
+      "capital_flow": "AI 基礎設施資本支出持續淨流入",
+      "baseline_quote": {
+        "price": "1096.16",
+        "prevClose": "1043.96",
+        "changeAmt": "+52.20",
+        "changePct": "+5.00",
+        "time": "2026-09-22 16:00:07",
+        "isUp": true,
+        "isDown": false
+      }
     },
     {
       "symbol": "GEV",
@@ -161,7 +206,16 @@
       "buy_position": "未有",
       "holding_position": "未有",
       "institutional_flow": "中長期法人部位鎖定，籌碼集中度高",
-      "capital_flow": "AI 基礎設施資本支出持續淨流入"
+      "capital_flow": "AI 基礎設施資本支出持續淨流入",
+      "baseline_quote": {
+        "price": "950.28",
+        "prevClose": "946.22",
+        "changeAmt": "+4.06",
+        "changePct": "+0.43",
+        "time": "2026-09-22 16:05:27",
+        "isUp": true,
+        "isDown": false
+      }
     },
     {
       "symbol": "APH",
@@ -184,7 +238,16 @@
       "buy_position": "未有",
       "holding_position": "未有",
       "institutional_flow": "中長期法人部位鎖定，籌碼集中度高",
-      "capital_flow": "AI 基礎設施資本支出持續淨流入"
+      "capital_flow": "AI 基礎設施資本支出持續淨流入",
+      "baseline_quote": {
+        "price": "82.84",
+        "prevClose": "80.60",
+        "changeAmt": "+2.24",
+        "changePct": "+2.79",
+        "time": "2026-09-22 16:05:27",
+        "isUp": true,
+        "isDown": false
+      }
     },
     {
       "symbol": "VRT",
@@ -207,7 +270,16 @@
       "buy_position": "未有",
       "holding_position": "未有",
       "institutional_flow": "中長期法人部位鎖定，籌碼集中度高",
-      "capital_flow": "AI 基礎設施資本支出持續淨流入"
+      "capital_flow": "AI 基礎設施資本支出持續淨流入",
+      "baseline_quote": {
+        "price": "253.46",
+        "prevClose": "250.86",
+        "changeAmt": "+2.60",
+        "changePct": "+1.04",
+        "time": "2026-09-22 16:05:27",
+        "isUp": true,
+        "isDown": false
+      }
     },
     {
       "symbol": "LRCX",
@@ -230,7 +302,16 @@
       "buy_position": "未有",
       "holding_position": "未有",
       "institutional_flow": "中長期法人部位鎖定，籌碼集中度高",
-      "capital_flow": "AI 基礎設施資本支出持續淨流入"
+      "capital_flow": "AI 基礎設施資本支出持續淨流入",
+      "baseline_quote": {
+        "price": "310.96",
+        "prevClose": "302.28",
+        "changeAmt": "+8.68",
+        "changePct": "+2.87",
+        "time": "2026-09-22 16:00:07",
+        "isUp": true,
+        "isDown": false
+      }
     },
     {
       "symbol": "AMAT",
@@ -253,7 +334,16 @@
       "buy_position": "未有",
       "holding_position": "未有",
       "institutional_flow": "中長期法人部位鎖定，籌碼集中度高",
-      "capital_flow": "AI 基礎設施資本支出持續淨流入"
+      "capital_flow": "AI 基礎設施資本支出持續淨流入",
+      "baseline_quote": {
+        "price": "472.46",
+        "prevClose": "464.24",
+        "changeAmt": "+8.22",
+        "changePct": "+1.77",
+        "time": "2026-09-22 16:00:07",
+        "isUp": true,
+        "isDown": false
+      }
     }
   ]
 }

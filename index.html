@@ -9,14 +9,16 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <script>
-    // Automatic mobile cache breaker: forces browser to drop stale script cache
-    const BUILD_VERSION = "20260923_1335";
-    const storedVer = localStorage.getItem("us_cp_ver");
-    if (storedVer !== BUILD_VERSION) {
-      localStorage.setItem("us_cp_ver", BUILD_VERSION);
-      if (storedVer && 'caches' in window) {
-        caches.keys().then(names => names.forEach(name => caches.delete(name)));
+    // Automatic mobile cache breaker with safe exception handling
+    try {
+      const BUILD_VERSION = "20260923_1550";
+      const storedVer = localStorage.getItem("us_cp_ver");
+      if (storedVer !== BUILD_VERSION) {
+        localStorage.setItem("us_cp_ver", BUILD_VERSION);
       }
+    } catch (e) {
+      // In private browsing mode or storage disabled, silently continue
+      console.warn("Storage access restricted:", e);
     }
   </script>
   <!-- Tailwind CSS CDN -->
@@ -240,8 +242,8 @@
     </div>
   </footer>
 
-  <!-- App Script with version query -->
-  <script src="./app.js?v=202609231535" type="module"></script>
+  <!-- App Script with latest version query -->
+  <script src="./app.js?v=202609231550" type="module"></script>
 </body>
 </html>
 

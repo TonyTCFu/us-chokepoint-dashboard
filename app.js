@@ -1,13 +1,14 @@
 /**
  * US Chokepoint Dashboard - Frontend Application
  * High Information Density, Native ESModule, Zero Overhead
- * Live US Stock Real-time Quotes with Resilient Non-blocking Fallbacks
+ * Resilient Multi-tiered Data Architecture with Guaranteed Rendering
  */
 
 let currentData = null;
 let realtimeQuotes = {};
 let currentView = 'cards'; // 'cards' | 'table'
 let lastQuoteTime = null;
+let isRefreshing = false;
 
 // Domain classification map for quick filtering
 const DOMAIN_GROUPS = {
@@ -167,11 +168,15 @@ function parseTencentRawQuotes(text) {
 }
 
 /**
- * Non-blocking dashboard loader:
+ * Robust non-blocking dashboard loader:
  * 1. Immediately loads static JSON & renders the UI (ZERO loading freeze).
- * 2. Asynchronously fetches live quotes and updates cards seamlessly.
+ * 2. Uses embedded baseline quotes instantly so cards are NEVER blank.
+ * 3. Asynchronously fetches live quotes to refresh prices.
  */
 async function loadDashboardData(isManual = false) {
+  if (isRefreshing) return;
+  isRefreshing = true;
+
   const refreshIcon = document.getElementById('refresh-icon');
   const refreshText = document.getElementById('refresh-text');
   
@@ -180,9 +185,9 @@ async function loadDashboardData(isManual = false) {
 
   try {
     const timestamp = Date.now();
-    const staticUrl = `./data/chokepoint_latest.json?_t=${timestamp}&v=202609231535`;
+    const staticUrl = `./data/chokepoint_latest.json?_t=${timestamp}&v=202609231550`;
     
-    // Step 1: Fetch static rating data first
+    // Step 1: Fetch static rating data
     const staticRes = await fetch(staticUrl, {
       cache: 'no-store',
       headers: {
@@ -197,7 +202,7 @@ async function loadDashboardData(isManual = false) {
 
     currentData = await staticRes.json();
     
-    // Render UI immediately with static data! No blank screen!
+    // Render UI immediately with static data & baseline quotes! Zero wait time!
     renderHeaderMetadata(currentData);
     renderCurrentView();
 
@@ -210,12 +215,18 @@ async function loadDashboardData(isManual = false) {
     });
 
     if (isManual) {
-      showToast('✅ 已強制穿透快取！行情與 9月23日 評級已同步');
+      showToast('✅ 10 檔標的最新行情與 9月23日 評級已同步完成');
     }
   } catch (error) {
     console.error('Failed to load dashboard data:', error);
+    // Even if static fetch failed, if we had currentData, re-render it
+    if (currentData) {
+      renderHeaderMetadata(currentData);
+      renderCurrentView();
+    }
     showToast('連線異常，請稍後重試', true);
   } finally {
+    isRefreshing = false;
     if (refreshIcon) refreshIcon.classList.remove('animate-spin-custom');
     if (refreshText) refreshText.textContent = '即時更新';
   }
@@ -274,6 +285,19 @@ function renderCurrentView() {
   }
 }
 
+/**
+ * Resolve effective quote: prioritize live quote, fallback to item.baseline_quote
+ */
+function getEffectiveQuote(item) {
+  if (realtimeQuotes[item.symbol] && realtimeQuotes[item.symbol].price !== '--') {
+    return realtimeQuotes[item.symbol];
+  }
+  if (item.baseline_quote) {
+    return item.baseline_quote;
+  }
+  return null;
+}
+
 function renderCardsView() {
   const container = document.getElementById('cards-container');
   const tableContainer = document.getElementById('table-container');
@@ -289,10 +313,10 @@ function renderCardsView() {
     const card = document.createElement('div');
     card.className = 'bg-[#111827] border border-gray-800/90 hover:border-emerald-500/50 rounded-xl p-5 shadow-lg transition duration-200 flex flex-col justify-between';
 
-    // Retrieve live quote for this symbol
-    const q = realtimeQuotes[item.symbol];
+    // Retrieve live quote or fallback to baseline quote
+    const q = getEffectiveQuote(item);
     let quoteHtml = '';
-    if (q && q.price !== '--') {
+    if (q && q.price && q.price !== '--') {
       const badgeColor = q.isUp 
         ? 'bg-emerald-950/80 text-emerald-400 border-emerald-800/60' 
         : (q.isDown ? 'bg-rose-950/80 text-rose-400 border-rose-800/60' : 'bg-gray-800 text-gray-300 border-gray-700');
@@ -315,7 +339,7 @@ function renderCardsView() {
     } else {
       quoteHtml = `
         <div class="mt-2.5 px-3 py-2 rounded-lg bg-gray-900/60 border border-gray-800/60 flex items-center justify-between text-xs text-gray-400 font-mono">
-          <span>行情連線中</span>
+          <span>行情連線</span>
           <span class="text-emerald-400 text-[11px]">即時報價同步中...</span>
         </div>
       `;
@@ -400,9 +424,9 @@ function renderTableView() {
     const tr = document.createElement('tr');
     tr.className = 'hover:bg-gray-800/40 transition duration-150';
 
-    const q = realtimeQuotes[item.symbol];
+    const q = getEffectiveQuote(item);
     let priceCellHtml = '';
-    if (q && q.price !== '--') {
+    if (q && q.price && q.price !== '--') {
       const textColor = q.isUp ? 'text-emerald-400' : (q.isDown ? 'text-rose-400' : 'text-gray-300');
       const timeClean = q.time ? q.time.split(' ')[1] || q.time : '';
       priceCellHtml = `
@@ -478,7 +502,7 @@ function initApp() {
   // 2. Periodic quote refresh
   setInterval(silentRefreshQuotes, 30000);
 
-  // 3. Refresh button click
+  // 3. Refresh button click with concurrency lock
   const refreshBtn = document.getElementById('refresh-btn');
   if (refreshBtn) {
     refreshBtn.addEventListener('click', () => {
