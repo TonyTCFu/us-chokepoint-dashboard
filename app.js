@@ -1,7 +1,7 @@
 /**
  * US Chokepoint Dashboard - Frontend Application
  * High Information Density, Native ESModule, Zero Overhead
- * Resilient Multi-tiered Data Architecture with Guaranteed Rendering
+ * Resilient Architecture with Smart Schedule & Detailed Moat Breakdown
  */
 
 let currentData = null;
@@ -9,6 +9,7 @@ let realtimeQuotes = {};
 let currentView = 'cards'; // 'cards' | 'table'
 let lastQuoteTime = null;
 let isRefreshing = false;
+let hourlyIntervalId = null;
 
 // Domain classification map for quick filtering
 const DOMAIN_GROUPS = {
@@ -32,6 +33,27 @@ const SYMBOL_TO_TENCENT = {
   APH:  'usAPH'
 };
 
+/**
+ * Check if the US Stock Market is currently open (Eastern Time Monday-Friday 9:30 AM - 4:00 PM)
+ */
+function isUSMarketOpen(date = new Date()) {
+  try {
+    const etString = date.toLocaleString('en-US', { timeZone: 'America/New_York' });
+    const etDate = new Date(etString);
+    const day = etDate.getDay(); // 0 is Sunday, 6 is Saturday
+    if (day === 0 || day === 6) return false;
+
+    const hours = etDate.getHours();
+    const minutes = etDate.getMinutes();
+    const currentMinutes = hours * 60 + minutes;
+
+    // Regular trading hours: 9:30 AM (570) to 4:00 PM (960)
+    return currentMinutes >= 570 && currentMinutes < 960;
+  } catch (e) {
+    return false;
+  }
+}
+
 function formatShanghaiTime() {
   const d = new Date();
   const pad = (n) => String(n).padStart(2, '0');
@@ -42,6 +64,42 @@ function formatShanghaiTime() {
   const min = pad(d.getMinutes());
   const s = pad(d.getSeconds());
   return `${y}-${m}-${day} ${h}:${min}:${s}`;
+}
+
+/**
+ * Parse four-dimension moat score breakdown:
+ * Example input: "技術30/30｜供需25/25｜盈利24/25｜增長19/20"
+ */
+function parseScoreBreakdown(str) {
+  if (!str) return [];
+  const parts = str.split('｜');
+  const labels = {
+    '技術': { title: '技術獨占', max: 30 },
+    '供需': { title: '供需壁壘', max: 25 },
+    '盈利': { title: '盈利質量', max: 25 },
+    '增長': { title: '增長空間', max: 20 }
+  };
+  return parts.map(p => {
+    const m = p.match(/(技術|供需|盈利|增長)(\d+)\/(\d+)/);
+    if (!m) return null;
+    const key = m[1];
+    const score = parseInt(m[2], 10);
+    const max = parseInt(m[3], 10);
+    return {
+      key,
+      title: labels[key] ? labels[key].title : key,
+      score,
+      max,
+      pct: Math.round((score / max) * 100)
+    };
+  }).filter(Boolean);
+}
+
+function getMoatTierBadge(score) {
+  if (score >= 95) return { text: '全球壟斷級護城河', color: 'bg-emerald-950 text-emerald-300 border-emerald-700' };
+  if (score >= 90) return { text: '極高壁壘寡頭', color: 'bg-teal-950 text-teal-300 border-teal-700' };
+  if (score >= 85) return { text: '高轉換成本核心節點', color: 'bg-blue-950 text-blue-300 border-blue-700' };
+  return { text: '關鍵設備不可或缺', color: 'bg-gray-800 text-gray-300 border-gray-700' };
 }
 
 /**
@@ -137,7 +195,6 @@ function parseTencentRawQuotes(text) {
     const payload = match[2];
     const fields = payload.split('~');
 
-    // Find symbol
     const targetSymbol = Object.keys(SYMBOL_TO_TENCENT).find(
       sym => SYMBOL_TO_TENCENT[sym] === tencentKey
     );
@@ -168,10 +225,10 @@ function parseTencentRawQuotes(text) {
 }
 
 /**
- * Robust non-blocking dashboard loader:
- * 1. Immediately loads static JSON & renders the UI (ZERO loading freeze).
- * 2. Uses embedded baseline quotes instantly so cards are NEVER blank.
- * 3. Asynchronously fetches live quotes to refresh prices.
+ * Main dashboard loader:
+ * - When market is closed: maintains prior close price, no polling.
+ * - When market is open: refreshes once every hour.
+ * - Manual trigger via refresh button: refreshes immediately.
  */
 async function loadDashboardData(isManual = false) {
   if (isRefreshing) return;
@@ -185,9 +242,9 @@ async function loadDashboardData(isManual = false) {
 
   try {
     const timestamp = Date.now();
-    const staticUrl = `./data/chokepoint_latest.json?_t=${timestamp}&v=202609231550`;
+    const staticUrl = `./data/chokepoint_latest.json?_t=${timestamp}&v=202609231630`;
     
-    // Step 1: Fetch static rating data
+    // Step 1: Fetch static rating data with embedded baseline quotes
     const staticRes = await fetch(staticUrl, {
       cache: 'no-store',
       headers: {
@@ -202,24 +259,26 @@ async function loadDashboardData(isManual = false) {
 
     currentData = await staticRes.json();
     
-    // Render UI immediately with static data & baseline quotes! Zero wait time!
+    // Render UI immediately with static data & baseline quotes! Zero delay!
     renderHeaderMetadata(currentData);
     renderCurrentView();
 
-    // Step 2: Asynchronously update live stock quotes without blocking UI
-    fetchRealtimeQuotes().then(() => {
-      renderHeaderMetadata(currentData);
-      renderCurrentView();
-    }).catch(err => {
-      console.warn('Realtime quotes background fetch finished with fallback:', err);
-    });
+    // Step 2: Only fetch live quotes if market is OPEN or if manually triggered
+    const marketOpen = isUSMarketOpen();
+    if (marketOpen || isManual) {
+      fetchRealtimeQuotes().then(() => {
+        renderHeaderMetadata(currentData);
+        renderCurrentView();
+      }).catch(err => {
+        console.warn('Realtime quotes background fetch finished with fallback:', err);
+      });
+    }
 
     if (isManual) {
-      showToast('✅ 10 檔標的最新行情與 9月23日 評級已同步完成');
+      showToast('✅ 10 檔標的最新行情與護城河評級已同步完成');
     }
   } catch (error) {
     console.error('Failed to load dashboard data:', error);
-    // Even if static fetch failed, if we had currentData, re-render it
     if (currentData) {
       renderHeaderMetadata(currentData);
       renderCurrentView();
@@ -233,15 +292,40 @@ async function loadDashboardData(isManual = false) {
 }
 
 /**
- * Silent periodic refresh for real-time stock prices (every 30s)
+ * Configure automated refresh:
+ * - Active only during market hours (once per hour = 3600000ms).
+ * - Silent and inactive during market close.
  */
-async function silentRefreshQuotes() {
-  try {
-    await fetchRealtimeQuotes();
-    renderHeaderMetadata(currentData);
-    renderCurrentView();
-  } catch (e) {
-    console.debug('Silent quote refresh skipped:', e);
+function setupMarketSchedule() {
+  if (hourlyIntervalId) {
+    clearInterval(hourlyIntervalId);
+    hourlyIntervalId = null;
+  }
+
+  // Check market status every 10 minutes to auto-start/stop hourly schedule
+  setInterval(() => {
+    const marketOpen = isUSMarketOpen();
+    if (marketOpen && !hourlyIntervalId) {
+      // Start 1-hour interval during market hours
+      hourlyIntervalId = setInterval(() => {
+        if (isUSMarketOpen()) {
+          loadDashboardData(false);
+        }
+      }, 3600000); // 1 hour
+    } else if (!marketOpen && hourlyIntervalId) {
+      // Clear interval when market closes
+      clearInterval(hourlyIntervalId);
+      hourlyIntervalId = null;
+    }
+  }, 600000); // Check state every 10 minutes
+
+  // Initial trigger if market is currently open
+  if (isUSMarketOpen()) {
+    hourlyIntervalId = setInterval(() => {
+      if (isUSMarketOpen()) {
+        loadDashboardData(false);
+      }
+    }, 3600000);
   }
 }
 
@@ -253,14 +337,18 @@ function renderHeaderMetadata(data) {
   if (metaTime && data && data.updated_at_shanghai) {
     metaTime.textContent = data.updated_at_shanghai;
   }
+
   if (quoteTimeTag) {
-    if (lastQuoteTime) {
-      quoteTimeTag.textContent = `${lastQuoteTime} (即時連線)`;
+    const marketOpen = isUSMarketOpen();
+    if (marketOpen) {
+      quoteTimeTag.textContent = `${lastQuoteTime || formatShanghaiTime()} (美股盤中 · 1小時更新)`;
       quoteTimeTag.className = 'font-mono text-emerald-400 font-semibold';
     } else {
-      quoteTimeTag.textContent = formatShanghaiTime() + ' (已連線)';
+      quoteTimeTag.textContent = '美股休市 (維持前日收盤價)';
+      quoteTimeTag.className = 'font-mono text-cyan-400 font-semibold';
     }
   }
+
   if (versionTag && data && data.version_hash) {
     versionTag.textContent = `Build: ${data.version_hash}`;
   }
@@ -286,7 +374,9 @@ function renderCurrentView() {
 }
 
 /**
- * Resolve effective quote: prioritize live quote, fallback to item.baseline_quote
+ * Resolve effective quote:
+ * - If live quote exists, use it.
+ * - Otherwise, use item.baseline_quote (prior close).
  */
 function getEffectiveQuote(item) {
   if (realtimeQuotes[item.symbol] && realtimeQuotes[item.symbol].price !== '--') {
@@ -309,67 +399,99 @@ function renderCardsView() {
   const items = getFilteredItems();
   container.innerHTML = '';
 
+  const marketOpen = isUSMarketOpen();
+
   items.forEach(item => {
     const card = document.createElement('div');
     card.className = 'bg-[#111827] border border-gray-800/90 hover:border-emerald-500/50 rounded-xl p-5 shadow-lg transition duration-200 flex flex-col justify-between';
 
-    // Retrieve live quote or fallback to baseline quote
+    // Retrieve effective quote
     const q = getEffectiveQuote(item);
     let quoteHtml = '';
     if (q && q.price && q.price !== '--') {
       const badgeColor = q.isUp 
         ? 'bg-emerald-950/80 text-emerald-400 border-emerald-800/60' 
         : (q.isDown ? 'bg-rose-950/80 text-rose-400 border-rose-800/60' : 'bg-gray-800 text-gray-300 border-gray-700');
-      const timeClean = q.time ? q.time.split(' ')[1] || q.time : '';
+      const timeClean = q.time ? (q.time.includes(' ') ? q.time.split(' ')[1] : q.time) : '';
+      const marketBadge = marketOpen ? '盤中即時' : '前日收盤';
 
       quoteHtml = `
         <div class="mt-2.5 px-3 py-2 rounded-lg bg-gray-900/90 border border-gray-800 flex items-center justify-between font-mono">
           <div class="flex items-baseline gap-2">
-            <span class="text-[11px] text-gray-400 font-sans">最新報價</span>
+            <span class="text-[11px] text-gray-400 font-sans">${marketBadge}</span>
             <span class="text-xl font-bold text-white tracking-tight">$${q.price}</span>
           </div>
           <div class="flex items-center gap-2">
             <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold border ${badgeColor}">
               ${q.changePct}% (${q.changeAmt})
             </span>
-            <span class="text-[10px] text-gray-500 hidden sm:inline">${timeClean}</span>
+            <span class="text-[10px] text-gray-500 hidden sm:inline font-sans">${marketOpen ? '美東' : '收盤'} ${timeClean}</span>
           </div>
         </div>
       `;
     } else {
       quoteHtml = `
         <div class="mt-2.5 px-3 py-2 rounded-lg bg-gray-900/60 border border-gray-800/60 flex items-center justify-between text-xs text-gray-400 font-mono">
-          <span>行情連線</span>
-          <span class="text-emerald-400 text-[11px]">即時報價同步中...</span>
+          <span>行情狀態</span>
+          <span class="text-gray-400 text-[11px]">前日收盤基準固定</span>
         </div>
       `;
     }
 
+    // Moat Tier Badge
+    const moatBadge = getMoatTierBadge(item.moat_score);
+
+    // 4-Dimension Breakdown Grid
+    const dimensions = parseScoreBreakdown(item.score_breakdown);
+    const dimensionsHtml = dimensions.map(dim => `
+      <div class="bg-gray-950/80 border border-gray-800/80 p-2 rounded-lg flex flex-col justify-between">
+        <div class="flex items-center justify-between text-[10px] text-gray-400">
+          <span>${dim.title}</span>
+          <span class="text-gray-500">${dim.max}分滿</span>
+        </div>
+        <div class="mt-1 flex items-baseline justify-between font-mono">
+          <span class="text-xs font-bold text-emerald-400">${dim.score}</span>
+          <span class="text-[10px] text-gray-500">/ ${dim.max}</span>
+        </div>
+        <div class="w-full bg-gray-800/80 h-1 rounded-full mt-1.5 overflow-hidden">
+          <div class="bg-emerald-500 h-full rounded-full transition-all duration-500" style="width: ${dim.pct}%"></div>
+        </div>
+      </div>
+    `).join('');
+
     card.innerHTML = `
       <div>
-        <!-- Card Top Bar: Symbol, Name, Score -->
+        <!-- Card Top Bar: Symbol, Name, Moat Score -->
         <div class="flex items-start justify-between gap-2 pb-3 border-b border-gray-800/80">
           <div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 flex-wrap">
               <span class="font-mono font-bold text-lg text-white">${item.symbol}</span>
-              <span class="text-xs text-gray-400 font-medium">${item.company_name}</span>
+              <span class="text-xs text-gray-300 font-medium">${item.company_name}</span>
               <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 font-mono">${item.market}</span>
             </div>
             <p class="text-xs text-emerald-400 font-medium mt-1 leading-snug">${item.chokepoint_position}</p>
           </div>
           <div class="text-right shrink-0">
             <span class="text-2xl font-black font-mono text-emerald-400">${item.moat_score}</span>
-            <span class="text-[10px] text-gray-500 block -mt-1 font-mono">/ 100分</span>
+            <span class="text-[10px] text-gray-400 block -mt-1 font-mono">護城河總分</span>
           </div>
         </div>
 
-        <!-- Real-time Quote Bar -->
+        <!-- Price Quote Bar -->
         ${quoteHtml}
 
-        <!-- Score Breakdown Tag -->
-        <div class="mt-2.5 flex items-center justify-between text-[11px] bg-gray-900/80 px-2.5 py-1.5 rounded-lg border border-gray-800/60 font-mono text-gray-400">
-          <span>${item.score_breakdown}</span>
-          <span class="text-[10px] text-emerald-500 font-medium">${item.data_status}</span>
+        <!-- Moat Tier & Four-Dimension Breakdown Panel -->
+        <div class="mt-3">
+          <div class="flex items-center justify-between text-[11px] mb-1.5">
+            <span class="text-gray-400 font-medium flex items-center gap-1.5">
+              <span>護城河量化評級</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded border ${moatBadge.color}">${moatBadge.text}</span>
+            </span>
+            <span class="text-[10px] text-emerald-500 font-mono">${item.data_status}</span>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+            ${dimensionsHtml}
+          </div>
         </div>
 
         <!-- Chokepoint Domain & Rationale -->
@@ -420,6 +542,8 @@ function renderTableView() {
   const items = getFilteredItems();
   tbody.innerHTML = '';
 
+  const marketOpen = isUSMarketOpen();
+
   items.forEach(item => {
     const tr = document.createElement('tr');
     tr.className = 'hover:bg-gray-800/40 transition duration-150';
@@ -428,16 +552,16 @@ function renderTableView() {
     let priceCellHtml = '';
     if (q && q.price && q.price !== '--') {
       const textColor = q.isUp ? 'text-emerald-400' : (q.isDown ? 'text-rose-400' : 'text-gray-300');
-      const timeClean = q.time ? q.time.split(' ')[1] || q.time : '';
+      const timeClean = q.time ? (q.time.includes(' ') ? q.time.split(' ')[1] : q.time) : '';
       priceCellHtml = `
         <div class="font-bold text-white text-sm">$${q.price}</div>
         <div class="text-[11px] font-medium ${textColor}">
           ${q.changePct}% (${q.changeAmt})
         </div>
-        <div class="text-[10px] text-gray-500 font-mono mt-0.5">${timeClean}</div>
+        <div class="text-[10px] text-gray-500 font-mono mt-0.5">${marketOpen ? '盤中' : '前日收盤'} ${timeClean}</div>
       `;
     } else {
-      priceCellHtml = `<span class="text-emerald-400 text-xs">同步中...</span>`;
+      priceCellHtml = `<span class="text-gray-500 text-xs">前日收盤基準</span>`;
     }
 
     tr.innerHTML = `
@@ -447,6 +571,7 @@ function renderTableView() {
           <span class="text-[11px] font-mono text-emerald-400 font-bold bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-800/50">${item.moat_score}分</span>
         </div>
         <div class="text-[10px] text-gray-400 truncate max-w-[120px] mt-0.5">${item.company_name}</div>
+        <div class="text-[10px] text-gray-500 font-mono mt-1">${item.score_breakdown}</div>
       </td>
       <td class="py-3 px-3 text-gray-200 text-xs max-w-[200px] leading-snug">
         ${item.chokepoint_domain}
@@ -499,8 +624,8 @@ function initApp() {
   // 1. Immediate data load
   loadDashboardData(false);
 
-  // 2. Periodic quote refresh
-  setInterval(silentRefreshQuotes, 30000);
+  // 2. Setup market-aware smart refresh schedule
+  setupMarketSchedule();
 
   // 3. Refresh button click with concurrency lock
   const refreshBtn = document.getElementById('refresh-btn');
