@@ -242,7 +242,7 @@ async function loadDashboardData(isManual = false) {
 
   try {
     const timestamp = Date.now();
-    const staticUrl = `./data/chokepoint_latest.json?_t=${timestamp}&v=202609231630`;
+    const staticUrl = `./data/chokepoint_latest.json?_t=${timestamp}&v=202609231730`;
     
     // Step 1: Fetch static rating data with embedded baseline quotes
     const staticRes = await fetch(staticUrl, {
