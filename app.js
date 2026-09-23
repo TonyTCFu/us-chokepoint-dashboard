@@ -13,17 +13,19 @@ let hourlyIntervalId = null;
 
 // Domain classification map for quick filtering
 const DOMAIN_GROUPS = {
-  CHIP: ['NVDA', 'AVGO'],
+  CHIP: ['TSM', 'NVDA', 'AVGO'],
   EQUIP: ['ASML', 'LRCX', 'AMAT'],
-  MEMORY: ['MU'],
+  MEMORY: ['SKHY', 'MU'],
   POWER: ['GEV', 'ETN', 'VRT', 'APH']
 };
 
 // Tencent Financial API Symbol Mapping
 const SYMBOL_TO_TENCENT = {
+  TSM:  'usTSM',
   NVDA: 'usNVDA',
   ASML: 'usASML',
   AVGO: 'usAVGO',
+  SKHY: 'usSKHY',
   LRCX: 'usLRCX',
   AMAT: 'usAMAT',
   MU:   'usMU',
@@ -242,7 +244,7 @@ async function loadDashboardData(isManual = false) {
 
   try {
     const timestamp = Date.now();
-    const staticUrl = `./data/chokepoint_latest.json?_t=${timestamp}&v=202609231730`;
+    const staticUrl = `./data/chokepoint_latest.json?_t=${timestamp}&v=202609231945`;
     
     // Step 1: Fetch static rating data with embedded baseline quotes
     const staticRes = await fetch(staticUrl, {
@@ -275,7 +277,7 @@ async function loadDashboardData(isManual = false) {
     }
 
     if (isManual) {
-      showToast('✅ 10 檔標的最新行情與護城河評級已同步完成');
+      showToast('✅ 12 檔核心標的最新行情與護城河評級已同步完成');
     }
   } catch (error) {
     console.error('Failed to load dashboard data:', error);

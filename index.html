@@ -11,7 +11,7 @@
   <script>
     // Automatic mobile cache breaker with safe exception handling
     try {
-      const BUILD_VERSION = "20260923_1730";
+      const BUILD_VERSION = "20260923_1945";
       const storedVer = localStorage.getItem("us_cp_ver");
       if (storedVer !== BUILD_VERSION) {
         localStorage.setItem("us_cp_ver", BUILD_VERSION);
@@ -103,7 +103,7 @@
               美股「卡脖子」日更看板
             </h1>
             <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-900/60 text-emerald-300 border border-emerald-700/50 font-medium">
-              10 檔核心標的
+              12 檔核心標的 (含美股ADR)
             </span>
           </div>
           <p class="text-xs text-gray-400 mt-0.5">
@@ -126,10 +126,10 @@
 
         <!-- Filter Domain -->
         <select id="domain-filter" class="bg-gray-800 border border-gray-700 text-gray-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500">
-          <option value="ALL">全部領域 (10)</option>
-          <option value="CHIP">AI 計算與 ASIC (NVDA, AVGO)</option>
+          <option value="ALL">全部領域 (12)</option>
+          <option value="CHIP">AI 計算與先進製造 (TSM, NVDA, AVGO)</option>
           <option value="EQUIP">微影/蝕刻/沉積 (ASML, LRCX, AMAT)</option>
-          <option value="MEMORY">先進 HBM / DRAM (MU)</option>
+          <option value="MEMORY">先進 HBM / DRAM (SKHY, MU)</option>
           <option value="POWER">電力變壓/散熱/燃機 (GEV, ETN, VRT, APH)</option>
         </select>
 
@@ -165,12 +165,12 @@
       <div class="flex items-center space-x-4 border-t sm:border-t-0 pt-2 sm:pt-0 border-gray-800">
         <div class="text-right">
           <span class="text-gray-500 text-[11px] block">護城河平均分</span>
-          <span class="text-emerald-400 font-bold text-sm">90.1 分</span>
+          <span class="text-emerald-400 font-bold text-sm">91.2 分</span>
         </div>
         <div class="h-6 w-px bg-gray-800"></div>
         <div class="text-right">
           <span class="text-gray-500 text-[11px] block">核心觀測席位</span>
-          <span class="text-white font-bold text-sm">10 / 10 檔</span>
+          <span class="text-white font-bold text-sm">12 / 12 檔</span>
         </div>
       </div>
     </div>
@@ -217,7 +217,7 @@
     <div class="mt-8 p-3 rounded-lg bg-gray-900/60 border border-gray-800/80 text-[11px] text-gray-400 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
       <div>
         <span class="text-gray-300 font-semibold">已嚴格排除標的：</span>
-        <span>TSM (代工非架構), SKHY (非美股普通股), PWR (工程承包), CEG (電廠非設備), SNPS (軟體), COHR (光模組)。台股五檔不在本看板。</span>
+        <span>3711 (日月光), PWR (廣達), CEG (電廠非設備), 2317 (鴻海), 2454 (聯發科), SNPS (軟體), COHR (光模組)。TSM 與 SKHY 已轉化為美股 ADR 納入核心觀察。</span>
       </div>
       <div class="text-gray-500 font-mono text-[10px]">
         Anti-Fabrication & Strict Whitelist Protocol Active
@@ -240,7 +240,7 @@
   </footer>
 
   <!-- App Script with latest version query -->
-  <script src="./app.js?v=202609231730" type="module"></script>
+  <script src="./app.js?v=202609231945" type="module"></script>
 </body>
 </html>
 
