@@ -1,13 +1,14 @@
 /**
  * US Chokepoint Dashboard - Frontend Application
  * High Information Density, Native ESModule, Zero Overhead
- * Resilient Architecture with Smart Schedule & Detailed Moat Breakdown
+ * Real-time US Stock Quote Engine & Resilient Market-Aware Scheduler
  */
 
 let currentData = null;
 let realtimeQuotes = {};
 let currentView = 'cards'; // 'cards' | 'table'
 let lastQuoteTime = null;
+let lastESTTime = null;
 let isRefreshing = false;
 let hourlyIntervalId = null;
 
@@ -36,23 +37,42 @@ const SYMBOL_TO_TENCENT = {
 };
 
 /**
- * Check if the US Stock Market is currently open (Eastern Time Monday-Friday 9:30 AM - 4:00 PM)
+ * Robust US Eastern Time & Market Status Detection using standard Intl API
  */
-function isUSMarketOpen(date = new Date()) {
+function getUSEasternTimeInfo(date = new Date()) {
   try {
-    const etString = date.toLocaleString('en-US', { timeZone: 'America/New_York' });
-    const etDate = new Date(etString);
-    const day = etDate.getDay(); // 0 is Sunday, 6 is Saturday
-    if (day === 0 || day === 6) return false;
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York',
+      weekday: 'short',
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hour12: false
+    });
+    const parts = formatter.formatToParts(date);
+    const map = {};
+    parts.forEach(p => map[p.type] = p.value);
 
-    const hours = etDate.getHours();
-    const minutes = etDate.getMinutes();
-    const currentMinutes = hours * 60 + minutes;
+    const weekday = map.weekday;
+    const hour = parseInt(map.hour, 10);
+    const minute = parseInt(map.minute, 10);
+    const minuteOfDay = hour * 60 + minute;
+    const isWeekday = !['Sat', 'Sun'].includes(weekday);
+    const isOpen = isWeekday && (minuteOfDay >= 570 && minuteOfDay < 960); // 9:30 AM (570) to 4:00 PM (960)
 
-    // Regular trading hours: 9:30 AM (570) to 4:00 PM (960)
-    return currentMinutes >= 570 && currentMinutes < 960;
+    const pad = (v) => String(v).padStart(2, '0');
+    return {
+      isOpen,
+      timeString: `${pad(hour)}:${pad(minute)}:${pad(map.second)}`,
+      dateString: `${map.year}-${pad(map.month)}-${pad(map.day)}`,
+      weekday
+    };
   } catch (e) {
-    return false;
+    console.warn('Intl timezone calculation fallback:', e);
+    return { isOpen: true, timeString: '', dateString: '', weekday: '' };
   }
 }
 
@@ -69,8 +89,7 @@ function formatShanghaiTime() {
 }
 
 /**
- * Parse four-dimension moat score breakdown:
- * Example input: "技術30/30｜供需25/25｜盈利24/25｜增長19/20"
+ * Parse four-dimension moat score breakdown
  */
 function parseScoreBreakdown(str) {
   if (!str) return [];
@@ -105,27 +124,22 @@ function getMoatTierBadge(score) {
 }
 
 /**
- * Fetch real-time quotes with strict 3-second timeout.
- * Guaranteed never to hang or block UI rendering.
+ * Fetch real-time quotes from Tencent Financial API.
+ * Uses pure Simple GET request (ZERO custom headers) to guarantee NO CORS Preflight blockage.
  */
 async function fetchRealtimeQuotes() {
   const queryList = Object.values(SYMBOL_TO_TENCENT).join(',');
-  const url = `https://qt.gtimg.cn/q=${queryList}?_t=${Date.now()}`;
+  const url = `https://qt.gtimg.cn/q=${queryList}&_t=${Date.now()}`;
 
   let rawText = '';
 
-  // 1. Direct fetch with 3s AbortController timeout
+  // 1. Direct fetch: standard simple request with 4s timeout
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
 
     const res = await fetch(url, {
-      signal: controller.signal,
-      cache: 'no-store',
-      headers: {
-        'Pragma': 'no-cache',
-        'Cache-Control': 'no-cache, no-store'
-      }
+      signal: controller.signal
     });
     clearTimeout(timeoutId);
 
@@ -133,10 +147,10 @@ async function fetchRealtimeQuotes() {
       rawText = await res.text();
     }
   } catch (err) {
-    console.warn('Direct quote fetch aborted or failed:', err);
+    console.warn('Direct simple fetch aborted or failed:', err);
   }
 
-  // 2. Fallback to JSONP script injection with 3s safety timeout
+  // 2. Fallback to JSONP script injection
   if (!rawText) {
     rawText = await new Promise((resolve) => {
       const scriptId = 'quote-jsonp-script';
@@ -150,7 +164,7 @@ async function fetchRealtimeQuotes() {
       const safetyTimer = setTimeout(() => {
         if (script.parentNode) script.remove();
         resolve('');
-      }, 3000);
+      }, 4000);
 
       script.onload = () => {
         clearTimeout(safetyTimer);
@@ -211,7 +225,7 @@ function parseTencentRawQuotes(text) {
 
     updatedQuotes[targetSymbol] = {
       symbol: targetSymbol,
-      price: !isNaN(currentPrice) ? currentPrice.toFixed(2) : '--',
+      price: !isNaN(currentPrice) && currentPrice > 0 ? currentPrice.toFixed(2) : '--',
       prevClose: !isNaN(prevClose) ? prevClose.toFixed(2) : '--',
       open: !isNaN(openPrice) ? openPrice.toFixed(2) : '--',
       changeAmt: !isNaN(changeAmt) ? (changeAmt > 0 ? `+${changeAmt.toFixed(2)}` : changeAmt.toFixed(2)) : '0.00',
@@ -224,13 +238,13 @@ function parseTencentRawQuotes(text) {
 
   realtimeQuotes = { ...realtimeQuotes, ...updatedQuotes };
   lastQuoteTime = formatShanghaiTime();
+  const etInfo = getUSEasternTimeInfo();
+  lastESTTime = etInfo.timeString;
 }
 
 /**
  * Main dashboard loader:
- * - When market is closed: maintains prior close price, no polling.
- * - When market is open: refreshes once every hour.
- * - Manual trigger via refresh button: refreshes immediately.
+ * Guaranteed to execute live quote update and refresh all card prices synchronously.
  */
 async function loadDashboardData(isManual = false) {
   if (isRefreshing) return;
@@ -244,16 +258,13 @@ async function loadDashboardData(isManual = false) {
 
   try {
     const timestamp = Date.now();
-    const staticUrl = `./data/chokepoint_latest.json?_t=${timestamp}&v=202609231945`;
+    const staticUrl = `./data/chokepoint_latest.json?_t=${timestamp}`;
     
-    // Step 1: Fetch static rating data with embedded baseline quotes
-    const staticRes = await fetch(staticUrl, {
-      cache: 'no-store',
-      headers: {
-        'Pragma': 'no-cache',
-        'Cache-Control': 'no-cache, no-store, must-revalidate'
-      }
-    });
+    // Concurrently fetch static deep ratings and live stock quotes, awaiting both
+    const [staticRes] = await Promise.all([
+      fetch(staticUrl, { cache: 'no-store' }),
+      fetchRealtimeQuotes()
+    ]);
 
     if (!staticRes.ok) {
       throw new Error(`HTTP error loading static data: ${staticRes.status}`);
@@ -261,31 +272,23 @@ async function loadDashboardData(isManual = false) {
 
     currentData = await staticRes.json();
     
-    // Render UI immediately with static data & baseline quotes! Zero delay!
+    // Re-render UI with merged latest real-time prices & deep ratings
     renderHeaderMetadata(currentData);
     renderCurrentView();
 
-    // Step 2: Only fetch live quotes if market is OPEN or if manually triggered
-    const marketOpen = isUSMarketOpen();
-    if (marketOpen || isManual) {
-      fetchRealtimeQuotes().then(() => {
-        renderHeaderMetadata(currentData);
-        renderCurrentView();
-      }).catch(err => {
-        console.warn('Realtime quotes background fetch finished with fallback:', err);
-      });
-    }
-
     if (isManual) {
-      showToast('✅ 12 檔核心標的最新行情與護城河評級已同步完成');
+      const etInfo = getUSEasternTimeInfo();
+      const statusDesc = etInfo.isOpen ? `美東盤中 ${etInfo.timeString}` : '美股休市定稿';
+      showToast(`✅ 12 檔標的即時行情已同步 (${statusDesc})`);
     }
   } catch (error) {
     console.error('Failed to load dashboard data:', error);
+    // If static fetch had issues but we have previous data, re-render
     if (currentData) {
       renderHeaderMetadata(currentData);
       renderCurrentView();
     }
-    showToast('連線異常，請稍後重試', true);
+    showToast('連線異常，已載入前次快照', true);
   } finally {
     isRefreshing = false;
     if (refreshIcon) refreshIcon.classList.remove('animate-spin-custom');
@@ -295,8 +298,8 @@ async function loadDashboardData(isManual = false) {
 
 /**
  * Configure automated refresh:
- * - Active only during market hours (once per hour = 3600000ms).
- * - Silent and inactive during market close.
+ * - Active during market hours (once per hour = 3600000ms).
+ * - Checks status every 5 minutes.
  */
 function setupMarketSchedule() {
   if (hourlyIntervalId) {
@@ -304,27 +307,28 @@ function setupMarketSchedule() {
     hourlyIntervalId = null;
   }
 
-  // Check market status every 10 minutes to auto-start/stop hourly schedule
+  // Periodic market checker
   setInterval(() => {
-    const marketOpen = isUSMarketOpen();
-    if (marketOpen && !hourlyIntervalId) {
-      // Start 1-hour interval during market hours
+    const etInfo = getUSEasternTimeInfo();
+    if (etInfo.isOpen && !hourlyIntervalId) {
       hourlyIntervalId = setInterval(() => {
-        if (isUSMarketOpen()) {
+        const check = getUSEasternTimeInfo();
+        if (check.isOpen) {
           loadDashboardData(false);
         }
       }, 3600000); // 1 hour
-    } else if (!marketOpen && hourlyIntervalId) {
-      // Clear interval when market closes
+    } else if (!etInfo.isOpen && hourlyIntervalId) {
       clearInterval(hourlyIntervalId);
       hourlyIntervalId = null;
     }
-  }, 600000); // Check state every 10 minutes
+  }, 300000); // Check every 5 minutes
 
-  // Initial trigger if market is currently open
-  if (isUSMarketOpen()) {
+  // Initial setup if currently open
+  const initialCheck = getUSEasternTimeInfo();
+  if (initialCheck.isOpen) {
     hourlyIntervalId = setInterval(() => {
-      if (isUSMarketOpen()) {
+      const check = getUSEasternTimeInfo();
+      if (check.isOpen) {
         loadDashboardData(false);
       }
     }, 3600000);
@@ -341,12 +345,13 @@ function renderHeaderMetadata(data) {
   }
 
   if (quoteTimeTag) {
-    const marketOpen = isUSMarketOpen();
-    if (marketOpen) {
-      quoteTimeTag.textContent = `${lastQuoteTime || formatShanghaiTime()} (美股盤中 · 1小時更新)`;
+    const etInfo = getUSEasternTimeInfo();
+    if (etInfo.isOpen) {
+      const displayTime = lastESTTime ? `美東 ${lastESTTime}` : `美東 ${etInfo.timeString}`;
+      quoteTimeTag.textContent = `${displayTime} (盤中交易中 · 即時報價)`;
       quoteTimeTag.className = 'font-mono text-emerald-400 font-semibold';
     } else {
-      quoteTimeTag.textContent = '美股休市 (維持前日收盤價)';
+      quoteTimeTag.textContent = '美股休市 (維持前日收盤定稿)';
       quoteTimeTag.className = 'font-mono text-cyan-400 font-semibold';
     }
   }
@@ -377,15 +382,15 @@ function renderCurrentView() {
 
 /**
  * Resolve effective quote:
- * - If live quote exists, use it.
- * - Otherwise, use item.baseline_quote (prior close).
+ * - Prioritize live quote from realtimeQuotes if price exists.
+ * - Otherwise fallback to item.baseline_quote.
  */
 function getEffectiveQuote(item) {
   if (realtimeQuotes[item.symbol] && realtimeQuotes[item.symbol].price !== '--') {
-    return realtimeQuotes[item.symbol];
+    return { ...realtimeQuotes[item.symbol], isLive: true };
   }
   if (item.baseline_quote) {
-    return item.baseline_quote;
+    return { ...item.baseline_quote, isLive: false };
   }
   return null;
 }
@@ -401,7 +406,7 @@ function renderCardsView() {
   const items = getFilteredItems();
   container.innerHTML = '';
 
-  const marketOpen = isUSMarketOpen();
+  const etInfo = getUSEasternTimeInfo();
 
   items.forEach(item => {
     const card = document.createElement('div');
@@ -414,8 +419,9 @@ function renderCardsView() {
       const badgeColor = q.isUp 
         ? 'bg-emerald-950/80 text-emerald-400 border-emerald-800/60' 
         : (q.isDown ? 'bg-rose-950/80 text-rose-400 border-rose-800/60' : 'bg-gray-800 text-gray-300 border-gray-700');
+      
       const timeClean = q.time ? (q.time.includes(' ') ? q.time.split(' ')[1] : q.time) : '';
-      const marketBadge = marketOpen ? '盤中即時' : '前日收盤';
+      const marketBadge = (etInfo.isOpen || q.isLive) ? '盤中即時' : '前日收盤';
 
       quoteHtml = `
         <div class="mt-2.5 px-3 py-2 rounded-lg bg-gray-900/90 border border-gray-800 flex items-center justify-between font-mono">
@@ -427,7 +433,7 @@ function renderCardsView() {
             <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold border ${badgeColor}">
               ${q.changePct}% (${q.changeAmt})
             </span>
-            <span class="text-[10px] text-gray-500 hidden sm:inline font-sans">${marketOpen ? '美東' : '收盤'} ${timeClean}</span>
+            <span class="text-[10px] text-gray-500 hidden sm:inline font-sans">美東 ${timeClean}</span>
           </div>
         </div>
       `;
@@ -544,7 +550,7 @@ function renderTableView() {
   const items = getFilteredItems();
   tbody.innerHTML = '';
 
-  const marketOpen = isUSMarketOpen();
+  const etInfo = getUSEasternTimeInfo();
 
   items.forEach(item => {
     const tr = document.createElement('tr');
@@ -560,7 +566,7 @@ function renderTableView() {
         <div class="text-[11px] font-medium ${textColor}">
           ${q.changePct}% (${q.changeAmt})
         </div>
-        <div class="text-[10px] text-gray-500 font-mono mt-0.5">${marketOpen ? '盤中' : '前日收盤'} ${timeClean}</div>
+        <div class="text-[10px] text-gray-500 font-mono mt-0.5">${(etInfo.isOpen || q.isLive) ? '盤中' : '收盤'} ${timeClean}</div>
       `;
     } else {
       priceCellHtml = `<span class="text-gray-500 text-xs">前日收盤基準</span>`;
@@ -623,7 +629,7 @@ function showToast(message, isError = false) {
 
 // Global App Initialization
 function initApp() {
-  // 1. Immediate data load
+  // 1. Immediate initial data & live quote load
   loadDashboardData(false);
 
   // 2. Setup market-aware smart refresh schedule
@@ -664,7 +670,7 @@ function initApp() {
   }
 }
 
-// Support all browser ready states (loading, interactive, complete)
+// Support all browser ready states
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initApp);
 } else {
