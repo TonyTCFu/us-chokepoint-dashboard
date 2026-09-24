@@ -9,6 +9,8 @@ let realtimeQuotes = {};
 let currentView = 'cards'; // 'cards' | 'table'
 let lastQuoteTime = null;
 let lastESTTime = null;
+let lastMarketTime = null;
+let lastSyncLocalTime = null;
 let isRefreshing = false;
 let hourlyIntervalId = null;
 
@@ -234,10 +236,15 @@ function parseTencentRawQuotes(text) {
       isDown: changePct < 0,
       time: updateTime
     };
+
+    if (updateTime && !lastMarketTime) {
+      lastMarketTime = updateTime;
+    }
   }
 
   realtimeQuotes = { ...realtimeQuotes, ...updatedQuotes };
   lastQuoteTime = formatShanghaiTime();
+  lastSyncLocalTime = lastQuoteTime.split(' ')[1]; // e.g. "08:35:12"
   const etInfo = getUSEasternTimeInfo();
   lastESTTime = etInfo.timeString;
 }
@@ -272,14 +279,22 @@ async function loadDashboardData(isManual = false) {
 
     currentData = await staticRes.json();
     
+    // Record baseline timestamp if available
+    if (!lastMarketTime && currentData.items && currentData.items[0]?.baseline_quote?.time) {
+      lastMarketTime = currentData.items[0].baseline_quote.time;
+    }
+    
     // Re-render UI with merged latest real-time prices & deep ratings
     renderHeaderMetadata(currentData);
     renderCurrentView();
 
     if (isManual) {
       const etInfo = getUSEasternTimeInfo();
-      const statusDesc = etInfo.isOpen ? `美東盤中 ${etInfo.timeString}` : '美股休市定稿';
-      showToast(`✅ 12 檔標的即時行情已同步 (${statusDesc})`);
+      const localTime = lastSyncLocalTime || formatShanghaiTime().split(' ')[1];
+      const statusDesc = etInfo.isOpen 
+        ? `美東盤中 ${etInfo.timeString}` 
+        : `9/23 收盤定盤 · 本地已同步 ${localTime}`;
+      showToast(`✅ 12 檔標的行情已更新 (${statusDesc})`);
     }
   } catch (error) {
     console.error('Failed to load dashboard data:', error);
@@ -346,12 +361,23 @@ function renderHeaderMetadata(data) {
 
   if (quoteTimeTag) {
     const etInfo = getUSEasternTimeInfo();
+    const localTime = lastSyncLocalTime || formatShanghaiTime().split(' ')[1];
+    
     if (etInfo.isOpen) {
       const displayTime = lastESTTime ? `美東 ${lastESTTime}` : `美東 ${etInfo.timeString}`;
-      quoteTimeTag.textContent = `${displayTime} (盤中交易中 · 即時報價)`;
+      quoteTimeTag.textContent = `${displayTime} (盤中即時報價 · 同步: ${localTime})`;
       quoteTimeTag.className = 'font-mono text-emerald-400 font-semibold';
     } else {
-      quoteTimeTag.textContent = '美股休市 (維持前日收盤定稿)';
+      let marketDateLabel = '9/23 收盤 16:08';
+      if (lastMarketTime) {
+        const parts = lastMarketTime.split(' ');
+        if (parts.length === 2) {
+          const mDate = parts[0].slice(5).replace('-', '/'); // "09/23"
+          const mTime = parts[1].slice(0, 5); // "16:08"
+          marketDateLabel = `${mDate} 收盤 ${mTime}`;
+        }
+      }
+      quoteTimeTag.textContent = `美股休市 (美東 ${marketDateLabel} · 本地已同步: ${localTime})`;
       quoteTimeTag.className = 'font-mono text-cyan-400 font-semibold';
     }
   }
@@ -421,7 +447,8 @@ function renderCardsView() {
         : (q.isDown ? 'bg-rose-950/80 text-rose-400 border-rose-800/60' : 'bg-gray-800 text-gray-300 border-gray-700');
       
       const timeClean = q.time ? (q.time.includes(' ') ? q.time.split(' ')[1] : q.time) : '';
-      const marketBadge = (etInfo.isOpen || q.isLive) ? '盤中即時' : '前日收盤';
+      const datePart = (q.time && q.time.includes(' ')) ? q.time.split(' ')[0].slice(5).replace('-', '/') : '09/23';
+      const marketBadge = etInfo.isOpen ? '盤中即時' : `${datePart} 收盤`;
 
       quoteHtml = `
         <div class="mt-2.5 px-3 py-2 rounded-lg bg-gray-900/90 border border-gray-800 flex items-center justify-between font-mono">
@@ -561,12 +588,13 @@ function renderTableView() {
     if (q && q.price && q.price !== '--') {
       const textColor = q.isUp ? 'text-emerald-400' : (q.isDown ? 'text-rose-400' : 'text-gray-300');
       const timeClean = q.time ? (q.time.includes(' ') ? q.time.split(' ')[1] : q.time) : '';
+      const datePart = (q.time && q.time.includes(' ')) ? q.time.split(' ')[0].slice(5).replace('-', '/') : '09/23';
       priceCellHtml = `
         <div class="font-bold text-white text-sm">$${q.price}</div>
         <div class="text-[11px] font-medium ${textColor}">
           ${q.changePct}% (${q.changeAmt})
         </div>
-        <div class="text-[10px] text-gray-500 font-mono mt-0.5">${(etInfo.isOpen || q.isLive) ? '盤中' : '收盤'} ${timeClean}</div>
+        <div class="text-[10px] text-gray-500 font-mono mt-0.5">${etInfo.isOpen ? '盤中即時' : `${datePart} 收盤`} ${timeClean}</div>
       `;
     } else {
       priceCellHtml = `<span class="text-gray-500 text-xs">前日收盤基準</span>`;

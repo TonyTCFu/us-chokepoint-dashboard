@@ -11,7 +11,7 @@
   <script>
     // Automatic mobile cache breaker with safe exception handling
     try {
-      const BUILD_VERSION = "20260924_0005";
+      const BUILD_VERSION = "20260924_0835";
       const storedVer = localStorage.getItem("us_cp_ver");
       if (storedVer !== BUILD_VERSION) {
         localStorage.setItem("us_cp_ver", BUILD_VERSION);
@@ -151,13 +151,13 @@
         <div class="w-2.5 h-2.5 rounded-full bg-emerald-500/90 shrink-0"></div>
         <div class="space-y-0.5">
           <div class="text-gray-300 font-medium flex items-center gap-2 flex-wrap">
-            <span>深度評級戳記：</span>
+            <span>深度評級基準：</span>
             <span id="meta-updated-time" class="font-mono text-emerald-400 font-semibold">載入中...</span>
             <span class="text-gray-600">|</span>
-            <span>即時行情連線：</span>
+            <span>行情連線狀態：</span>
             <span id="quote-updated-time" class="font-mono text-cyan-400 font-semibold">即時讀取中...</span>
           </div>
-          <p class="text-[11px] text-gray-500">美股休市期間固定維持前日收盤價 ｜ 開盤期間每小時自動更新 ｜ 點擊「即時更新」可隨時強制同步最新行情</p>
+          <p class="text-[11px] text-gray-500">美股休市固定呈現最新收盤定盤價 ｜ 開盤期間每小時自動更新 ｜ 點擊「即時更新」秒級同步連線與最新行情</p>
         </div>
       </div>
       
@@ -240,7 +240,7 @@
   </footer>
 
   <!-- App Script with latest version query -->
-  <script src="./app.js?v=202609240005" type="module"></script>
+  <script src="./app.js?v=202609240835" type="module"></script>
 </body>
 </html>
 
