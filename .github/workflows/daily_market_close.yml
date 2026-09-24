@@ -1,0 +1,40 @@
+name: Daily US Market Close Sync
+
+on:
+  schedule:
+    # 20:30 UTC (16:30 EDT 夏令時 / 04:30 CST 台北/北京時間)
+    - cron: '30 20 * * 1-5'
+    # 21:30 UTC (16:30 EST 冬令時 / 05:30 CST 台北/北京時間)
+    - cron: '30 21 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync-close:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Run market close sync script
+        run: |
+          python3 scripts/update_market_close.py
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/chokepoint_latest.json index.html
+          if git diff --staged --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "chore(auto): daily market close sync $(date -u +'%Y-%m-%d %H:%M UTC')"
+            git push origin main
+          fi

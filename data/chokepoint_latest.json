@@ -1,8 +1,8 @@
 {
   "dashboard_title": "美股卡脖子日更看板 (US Chokepoint Dashboard)",
-  "version_hash": "202609240835",
-  "updated_at_utc": "2026-09-24T00:30:00.000Z",
-  "updated_at_shanghai": "2026-09-24 08:30:00 (UTC+8 美股9/23收盤定稿)",
+  "version_hash": "202609240824",
+  "updated_at_utc": "2026-09-24T00:24:03.590550Z",
+  "updated_at_shanghai": "2026-09-24 08:24:03 (UTC+8 美股09/23收盤定稿)",
   "moat_definition": "基準分純代表卡脖子關鍵技術深度與護城河排他性（評分不含估值，不隨股價波動）",
   "redlines_active": [
     "公網高可用：部署於 GitHub Pages 全球 CDN，不依賴本地設備",
