@@ -103,6 +103,20 @@ def main():
         with open(DATA_PATH, 'r', encoding='utf-8') as f:
             data = json.load(f)
 
+        # Check if quotes actually changed
+        has_change = False
+        for item in data.get('items', []):
+            sym = item.get('symbol')
+            old_q = item.get('baseline_quote')
+            new_q = quotes.get(sym)
+            if not old_q or not new_q or old_q.get('price') != new_q.get('price') or old_q.get('time') != new_q.get('time'):
+                has_change = True
+                break
+
+        if not has_change:
+            print("All 12 quotes are identical to existing baseline. No redundant update needed.")
+            return
+
         data['version_hash'] = version_hash.replace('_', '')
         data['updated_at_utc'] = datetime.datetime.utcnow().isoformat() + 'Z'
         data['updated_at_shanghai'] = f"{now_shanghai_str} (UTC+8 {market_date_str})"
