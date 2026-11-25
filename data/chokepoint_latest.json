@@ -1,8 +1,8 @@
 {
   "dashboard_title": "美股卡脖子日更看板 (US Chokepoint Dashboard)",
-  "version_hash": "202611240453",
-  "updated_at_utc": "2026-11-24T04:53:28.503277Z",
-  "updated_at_shanghai": "2026-11-24 04:53:28 (UTC+8 美股11/23收盤定稿)",
+  "version_hash": "202611250337",
+  "updated_at_utc": "2026-11-25T03:37:42.691543Z",
+  "updated_at_shanghai": "2026-11-25 03:37:42 (UTC+8 美股11/24收盤定稿)",
   "moat_definition": "基準分純代表卡脖子關鍵技術深度與護城河排他性（評分不含估值，不隨股價波動）",
   "redlines_active": [
     "公網高可用：部署於 GitHub Pages 全球 CDN，不依賴本地設備",
@@ -46,13 +46,13 @@
       "institutional_flow": "外資主權基金與 Vanguard/BlackRock 核心超配，ADR 溢價率維持合理區間",
       "capital_flow": "全球半導體資金核心配置錨點，長線機構資金長期沉澱",
       "baseline_quote": {
-        "price": "363.60",
-        "prevClose": "318.71",
-        "changeAmt": "+44.89",
-        "changePct": "+14.08",
-        "time": "2026-11-23 16:05:24",
-        "isUp": true,
-        "isDown": false
+        "price": "349.20",
+        "prevClose": "363.60",
+        "changeAmt": "-14.40",
+        "changePct": "-3.96",
+        "time": "2026-11-24 16:04:51",
+        "isUp": false,
+        "isDown": true
       }
     },
     {
@@ -78,13 +78,13 @@
       "institutional_flow": "中長期法人部位鎖定，籌碼集中度高",
       "capital_flow": "AI 基礎設施資本支出持續淨流入",
       "baseline_quote": {
-        "price": "165.05",
-        "prevClose": "125.53",
-        "changeAmt": "+39.52",
-        "changePct": "+31.48",
-        "time": "2026-11-23 16:00:01",
-        "isUp": true,
-        "isDown": false
+        "price": "155.38",
+        "prevClose": "165.05",
+        "changeAmt": "-9.67",
+        "changePct": "-5.86",
+        "time": "2026-11-24 16:00:02",
+        "isUp": false,
+        "isDown": true
       }
     },
     {
@@ -110,13 +110,13 @@
       "institutional_flow": "中長期法人部位鎖定，籌碼集中度高",
       "capital_flow": "AI 基礎設施資本支出持續淨流入",
       "baseline_quote": {
-        "price": "1383.78",
-        "prevClose": "1266.22",
-        "changeAmt": "+117.56",
-        "changePct": "+9.28",
-        "time": "2026-11-23 16:00:01",
-        "isUp": true,
-        "isDown": false
+        "price": "1336.06",
+        "prevClose": "1383.78",
+        "changeAmt": "-47.72",
+        "changePct": "-3.45",
+        "time": "2026-11-24 16:00:02",
+        "isUp": false,
+        "isDown": true
       }
     },
     {
@@ -142,13 +142,13 @@
       "institutional_flow": "中長期法人部位鎖定，籌碼集中度高",
       "capital_flow": "AI 基礎設施資本支出持續淨流入",
       "baseline_quote": {
-        "price": "313.55",
-        "prevClose": "304.41",
-        "changeAmt": "+9.14",
-        "changePct": "+3.00",
-        "time": "2026-11-23 16:00:01",
-        "isUp": true,
-        "isDown": false
+        "price": "301.08",
+        "prevClose": "313.55",
+        "changeAmt": "-12.47",
+        "changePct": "-3.98",
+        "time": "2026-11-24 16:00:02",
+        "isUp": false,
+        "isDown": true
       }
     },
     {
@@ -174,13 +174,13 @@
       "institutional_flow": "美股 ADR 與場外存託交投活躍，全球 AI 專項主動型基金重點持倉",
       "capital_flow": "資金持續從傳統 DRAM 流入 HBM 高毛利純度標的",
       "baseline_quote": {
-        "price": "124.28",
-        "prevClose": "103.57",
-        "changeAmt": "+20.71",
-        "changePct": "+20.00",
-        "time": "2026-11-23 16:00:01",
-        "isUp": true,
-        "isDown": false
+        "price": "111.98",
+        "prevClose": "124.28",
+        "changeAmt": "-12.30",
+        "changePct": "-9.90",
+        "time": "2026-11-24 16:00:02",
+        "isUp": false,
+        "isDown": true
       }
     },
     {
@@ -206,13 +206,13 @@
       "institutional_flow": "中長期法人部位鎖定，籌碼集中度高",
       "capital_flow": "AI 基礎設施資本支出持續淨流入",
       "baseline_quote": {
-        "price": "336.34",
-        "prevClose": "311.33",
-        "changeAmt": "+25.01",
-        "changePct": "+8.03",
-        "time": "2026-11-23 16:05:24",
-        "isUp": true,
-        "isDown": false
+        "price": "319.27",
+        "prevClose": "336.34",
+        "changeAmt": "-17.07",
+        "changePct": "-5.08",
+        "time": "2026-11-24 16:04:51",
+        "isUp": false,
+        "isDown": true
       }
     },
     {
@@ -238,13 +238,13 @@
       "institutional_flow": "中長期法人部位鎖定，籌碼集中度高",
       "capital_flow": "AI 基礎設施資本支出持續淨流入",
       "baseline_quote": {
-        "price": "707.70",
-        "prevClose": "594.51",
-        "changeAmt": "+113.19",
-        "changePct": "+19.04",
-        "time": "2026-11-23 16:00:01",
-        "isUp": true,
-        "isDown": false
+        "price": "629.79",
+        "prevClose": "707.70",
+        "changeAmt": "-77.91",
+        "changePct": "-11.01",
+        "time": "2026-11-24 16:00:02",
+        "isUp": false,
+        "isDown": true
       }
     },
     {
@@ -270,13 +270,13 @@
       "institutional_flow": "中長期法人部位鎖定，籌碼集中度高",
       "capital_flow": "AI 基礎設施資本支出持續淨流入",
       "baseline_quote": {
-        "price": "756.71",
-        "prevClose": "699.33",
-        "changeAmt": "+57.38",
-        "changePct": "+8.20",
-        "time": "2026-11-23 16:05:24",
-        "isUp": true,
-        "isDown": false
+        "price": "720.65",
+        "prevClose": "756.71",
+        "changeAmt": "-36.06",
+        "changePct": "-4.77",
+        "time": "2026-11-24 16:04:51",
+        "isUp": false,
+        "isDown": true
       }
     },
     {
@@ -302,13 +302,13 @@
       "institutional_flow": "中長期法人部位鎖定，籌碼集中度高",
       "capital_flow": "AI 基礎設施資本支出持續淨流入",
       "baseline_quote": {
-        "price": "77.41",
-        "prevClose": "69.72",
-        "changeAmt": "+7.69",
-        "changePct": "+11.03",
-        "time": "2026-11-23 16:05:24",
-        "isUp": true,
-        "isDown": false
+        "price": "73.47",
+        "prevClose": "77.41",
+        "changeAmt": "-3.94",
+        "changePct": "-5.09",
+        "time": "2026-11-24 16:04:51",
+        "isUp": false,
+        "isDown": true
       }
     },
     {
@@ -334,13 +334,13 @@
       "institutional_flow": "中長期法人部位鎖定，籌碼集中度高",
       "capital_flow": "AI 基礎設施資本支出持續淨流入",
       "baseline_quote": {
-        "price": "186.35",
-        "prevClose": "166.24",
-        "changeAmt": "+20.11",
-        "changePct": "+12.10",
-        "time": "2026-11-23 16:05:24",
-        "isUp": true,
-        "isDown": false
+        "price": "173.82",
+        "prevClose": "186.25",
+        "changeAmt": "-12.43",
+        "changePct": "-6.67",
+        "time": "2026-11-24 16:04:51",
+        "isUp": false,
+        "isDown": true
       }
     },
     {
@@ -366,13 +366,13 @@
       "institutional_flow": "中長期法人部位鎖定，籌碼集中度高",
       "capital_flow": "AI 基礎設施資本支出持續淨流入",
       "baseline_quote": {
-        "price": "209.76",
-        "prevClose": "183.27",
-        "changeAmt": "+26.49",
-        "changePct": "+14.45",
-        "time": "2026-11-23 16:00:01",
-        "isUp": true,
-        "isDown": false
+        "price": "196.16",
+        "prevClose": "209.76",
+        "changeAmt": "-13.60",
+        "changePct": "-6.48",
+        "time": "2026-11-24 16:00:02",
+        "isUp": false,
+        "isDown": true
       }
     },
     {
@@ -398,13 +398,13 @@
       "institutional_flow": "中長期法人部位鎖定，籌碼集中度高",
       "capital_flow": "AI 基礎設施資本支出持續淨流入",
       "baseline_quote": {
-        "price": "346.87",
-        "prevClose": "302.63",
-        "changeAmt": "+44.24",
-        "changePct": "+14.62",
-        "time": "2026-11-23 16:00:01",
-        "isUp": true,
-        "isDown": false
+        "price": "323.76",
+        "prevClose": "346.87",
+        "changeAmt": "-23.11",
+        "changePct": "-6.66",
+        "time": "2026-11-24 16:00:02",
+        "isUp": false,
+        "isDown": true
       }
     }
   ]
